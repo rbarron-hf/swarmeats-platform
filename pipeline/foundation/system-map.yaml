@@ -1,0 +1,343 @@
+system_map:
+  project_name: "SwarmEats - Online Food Ordering Platform"
+  generated_at: "2026-03-03T00:00:00Z"
+  source_fdd: "inputs/fdd/functional-design-document.md"
+
+  bounded_contexts:
+    # =========================================================================
+    # ORDERS CONTEXT
+    # =========================================================================
+    - name: "Orders"
+      description: >
+        Customer-facing entry point that owns the order lifecycle from placement
+        through final delivery confirmation. Validates order data, enforces pricing
+        rules, and maintains order status by consuming events from the Restaurant
+        and Delivery contexts.
+      aggregates:
+        - name: "Order"
+          aggregate_root: "Order"
+          entities:
+            - "OrderLineItem"
+          value_objects:
+            - "DeliveryAddress"
+            - "OrderTotal"
+          commands:
+            - name: "PlaceOrder"
+              description: >
+                Creates a new order. Validates minimum subtotal (GBP 10.00),
+                maximum 20 line items, line item quantity >= 1 and unit price > 0,
+                delivery address with latitude/longitude, non-empty customerId and
+                restaurantId. Calculates order total (subtotal + GBP 2.99 delivery
+                fee). Generates order number in format ORD-YYYYMMDD-sequential.
+                Transitions order from Draft to Placed and raises OrderPlaced event.
+            - name: "CancelOrder"
+              description: >
+                Cancels an order. Only permitted while order status is Placed
+                (before restaurant accepts). Transitions order to Cancelled and
+                raises OrderCancelled event.
+          queries:
+            - name: "GetOrder"
+              description: >
+                Returns the full order including line items, status, and timestamps
+                for each state transition. Identified by orderId.
+            - name: "GetOrdersByCustomer"
+              description: >
+                Returns all orders for a customer sorted by creation date
+                descending. Supports pagination via continuationToken query
+                parameter. Returns order summaries (id, order number, restaurant
+                name, total, status, created date).
+      domain_events:
+        raised:
+          - name: "OrderPlaced"
+            description: >
+              Published when a customer places an order.
+            payload_fields:
+              - "orderId: Guid"
+              - "orderNumber: string"
+              - "customerId: Guid"
+              - "restaurantId: Guid"
+              - "lineItems: array of { menuItemId: Guid, menuItemName: string, quantity: int, unitPrice: decimal }"
+              - "deliveryAddress: object { street, city, postcode, latitude, longitude }"
+              - "orderTotal: decimal"
+              - "placedAt: DateTimeOffset"
+            target_topic: "orders.placed"
+          - name: "OrderCancelled"
+            description: >
+              Published when a customer cancels an order.
+            payload_fields:
+              - "orderId: Guid"
+              - "orderNumber: string"
+              - "restaurantId: Guid"
+              - "cancelledAt: DateTimeOffset"
+            target_topic: "orders.cancelled"
+        consumed:
+          - name: "OrderAccepted"
+            source_context: "Restaurant"
+            source_topic: "restaurant.order-accepted"
+            handler_description: >
+              Transitions the order status to Accepted. If the transition is
+              invalid (e.g. order already cancelled), logs a warning and discards
+              the event without throwing an exception.
+          - name: "OrderRejected"
+            source_context: "Restaurant"
+            source_topic: "restaurant.order-rejected"
+            handler_description: >
+              Transitions the order status to Rejected. If the transition is
+              invalid, logs a warning and discards the event without throwing an
+              exception.
+          - name: "OrderReadyForPickup"
+            source_context: "Restaurant"
+            source_topic: "restaurant.order-ready"
+            handler_description: >
+              Transitions the order status to ReadyForPickup. If the transition
+              is invalid, logs a warning and discards the event without throwing
+              an exception.
+          - name: "DriverAssigned"
+            source_context: "Delivery"
+            source_topic: "delivery.driver-assigned"
+            handler_description: >
+              Transitions the order status to InDelivery. If the transition is
+              invalid, logs a warning and discards the event without throwing an
+              exception.
+          - name: "DeliveryCompleted"
+            source_context: "Delivery"
+            source_topic: "delivery.completed"
+            handler_description: >
+              Transitions the order status to Delivered. If the transition is
+              invalid, logs a warning and discards the event without throwing an
+              exception.
+      dependencies:
+        - target_context: "Restaurant"
+          relationship: "consumer"
+          description: >
+            Consumes OrderAccepted, OrderRejected, and OrderReadyForPickup events
+            from the Restaurant context to progress order status through Accepted,
+            Rejected, and ReadyForPickup states.
+        - target_context: "Delivery"
+          relationship: "consumer"
+          description: >
+            Consumes DriverAssigned and DeliveryCompleted events from the Delivery
+            context to progress order status through InDelivery and Delivered states.
+
+    # =========================================================================
+    # RESTAURANT CONTEXT
+    # =========================================================================
+    - name: "Restaurant"
+      description: >
+        Manages restaurant menus and handles incoming orders from the Orders
+        context. Restaurant staff use this context to review incoming orders,
+        accept or reject them, and track preparation through to pickup readiness.
+      aggregates:
+        - name: "Menu"
+          aggregate_root: "Menu"
+          entities:
+            - "MenuItem"
+          value_objects:
+            - "Price"
+            - "PreparationTime"
+          commands:
+            - name: "UpdateMenuItem"
+              description: >
+                Creates or updates a menu item on the restaurant menu. Validates
+                that price is greater than GBP 0.00 and preparation time is at
+                least 1 minute. Menu item includes name, description, price,
+                category, and availability flag.
+          queries:
+            - name: "GetMenu"
+              description: >
+                Returns the full menu for a restaurant including all items,
+                availability, and operating hours. Identified by restaurantId.
+        - name: "RestaurantOrder"
+          aggregate_root: "RestaurantOrder"
+          entities: []
+          value_objects: []
+          commands:
+            - name: "AcceptOrder"
+              description: >
+                Staff accepts an incoming order with estimated preparation time.
+                Validates order is in Pending status and estimated preparation
+                time is between 5 and 90 minutes. Transitions RestaurantOrder
+                from Pending to Accepted and raises OrderAccepted event.
+            - name: "RejectOrder"
+              description: >
+                Staff rejects an incoming order with a reason code. Validates
+                order is in Pending status and reason code is from the allowed
+                set: RESTAURANT_CLOSED, ITEM_UNAVAILABLE, TOO_BUSY, OTHER.
+                Transitions RestaurantOrder from Pending to Rejected and raises
+                OrderRejected event.
+            - name: "UpdatePreparationStatus"
+              description: >
+                Staff updates the order preparation status to Preparing or
+                ReadyForPickup. Validates the transition is valid per the state
+                machine (Accepted -> Preparing -> ReadyForPickup). Raises
+                OrderReadyForPickup event when status moves to ReadyForPickup.
+          queries:
+            - name: "GetActiveOrders"
+              description: >
+                Returns orders for a restaurant filtered by status. Used by
+                the restaurant dashboard. Identified by restaurantId and optional
+                status filter.
+      domain_events:
+        raised:
+          - name: "OrderAccepted"
+            description: >
+              Published when restaurant staff accept an incoming order.
+            payload_fields:
+              - "orderId: Guid"
+              - "restaurantId: Guid"
+              - "estimatedPrepMinutes: int"
+              - "acceptedAt: DateTimeOffset"
+            target_topic: "restaurant.order-accepted"
+          - name: "OrderRejected"
+            description: >
+              Published when restaurant staff reject an incoming order or when
+              auto-rejected due to operating hours or unavailable items.
+            payload_fields:
+              - "orderId: Guid"
+              - "restaurantId: Guid"
+              - "reasonCode: string"
+              - "unavailableItemIds: array of Guid"
+              - "rejectedAt: DateTimeOffset"
+            target_topic: "restaurant.order-rejected"
+          - name: "OrderReadyForPickup"
+            description: >
+              Published when restaurant staff signal that the food is ready for
+              driver pickup.
+            payload_fields:
+              - "orderId: Guid"
+              - "restaurantId: Guid"
+              - "restaurantAddress: object { street, city, postcode, latitude, longitude }"
+              - "readyAt: DateTimeOffset"
+            target_topic: "restaurant.order-ready"
+        consumed:
+          - name: "OrderPlaced"
+            source_context: "Orders"
+            source_topic: "orders.placed"
+            handler_description: >
+              Creates a new RestaurantOrder in Pending status. Validates that the
+              restaurant is within operating hours (openingTime/closingTime on
+              Menu aggregate) and that every line item references a menu item that
+              exists and is marked as available. If outside operating hours,
+              auto-rejects with reason code RESTAURANT_CLOSED. If any item is
+              unavailable, auto-rejects with reason code ITEM_UNAVAILABLE and
+              includes the unavailable item IDs in the rejection payload.
+          - name: "OrderCancelled"
+            source_context: "Orders"
+            source_topic: "orders.cancelled"
+            handler_description: >
+              If the restaurant order is still in Pending status, marks it as
+              cancelled and does not present it to staff. If already Accepted or
+              later, logs a warning since the food is already being prepared.
+      dependencies:
+        - target_context: "Orders"
+          relationship: "consumer"
+          description: >
+            Consumes OrderPlaced and OrderCancelled events from the Orders
+            context. OrderPlaced triggers creation of a RestaurantOrder aggregate.
+            OrderCancelled triggers cancellation of pending restaurant orders.
+
+    # =========================================================================
+    # DELIVERY CONTEXT
+    # =========================================================================
+    - name: "Delivery"
+      description: >
+        Manages the assignment of drivers to orders that are ready for pickup,
+        tracks driver location during delivery, and confirms delivery completion.
+        Triggered by the Restaurant context OrderReadyForPickup event.
+      aggregates:
+        - name: "Delivery"
+          aggregate_root: "Delivery"
+          entities: []
+          value_objects:
+            - "DriverLocation"
+            - "Route"
+            - "EstimatedArrival"
+          commands:
+            - name: "AssignDriver"
+              description: >
+                Assigns an available driver to a delivery awaiting a driver.
+                Validates delivery is in AwaitingDriver status, the driver has no
+                active delivery (no delivery in DriverAssigned or PickedUp
+                status), and the driver is within 5km of the restaurant (straight-
+                line Haversine distance). Transitions delivery from AwaitingDriver
+                to DriverAssigned and raises DriverAssigned event.
+            - name: "UpdateDriverLocation"
+              description: >
+                Driver sends a location ping during delivery. Validates delivery
+                is in DriverAssigned or PickedUp status and the driver ID matches
+                the assigned driver. Updates estimated arrival time based on new
+                location. Must include latitude, longitude, and timestamp.
+            - name: "ConfirmPickup"
+              description: >
+                Driver confirms pickup of food from the restaurant. Validates
+                delivery is in DriverAssigned status and driver ID matches the
+                assigned driver. Transitions delivery from DriverAssigned to
+                PickedUp.
+            - name: "CompleteDelivery"
+              description: >
+                Driver confirms delivery to the customer. Validates delivery is
+                in PickedUp status and driver ID matches the assigned driver.
+                Transitions delivery from PickedUp to Delivered. Calculates
+                totalDeliveryMinutes from OrderReadyForPickup to Delivered and
+                flags slaBreached if greater than 45 minutes. Raises
+                DeliveryCompleted event.
+          queries:
+            - name: "GetDeliveryStatus"
+              description: >
+                Returns the delivery details including current status, driver
+                location, route, and estimated arrival. Identified by deliveryId.
+            - name: "GetEstimatedArrival"
+              description: >
+                Returns the current estimated arrival time based on the driver
+                last known location and last location update timestamp. Requires
+                a driver to be assigned (fails with DELIVERY_NO_DRIVER if not).
+      domain_events:
+        raised:
+          - name: "DriverAssigned"
+            description: >
+              Published when a driver is assigned to a delivery.
+            payload_fields:
+              - "deliveryId: Guid"
+              - "orderId: Guid"
+              - "driverId: Guid"
+              - "estimatedArrivalMinutes: int"
+              - "assignedAt: DateTimeOffset"
+            target_topic: "delivery.driver-assigned"
+          - name: "DeliveryCompleted"
+            description: >
+              Published when a driver completes a delivery to the customer.
+            payload_fields:
+              - "deliveryId: Guid"
+              - "orderId: Guid"
+              - "driverId: Guid"
+              - "deliveredAt: DateTimeOffset"
+              - "totalDeliveryMinutes: int"
+              - "slaBreached: bool"
+            target_topic: "delivery.completed"
+        consumed:
+          - name: "OrderReadyForPickup"
+            source_context: "Restaurant"
+            source_topic: "restaurant.order-ready"
+            handler_description: >
+              Creates a new Delivery aggregate in AwaitingDriver status with the
+              restaurant address as the pickup location and the order delivery
+              address as the dropoff location. Uses sentinel partition key value
+              unassigned until a driver is assigned.
+          - name: "OrderCancelled"
+            source_context: "Orders"
+            source_topic: "orders.cancelled"
+            handler_description: >
+              If the delivery is in AwaitingDriver status, cancels the delivery.
+              If a driver is already assigned or has picked up, logs a warning
+              since the driver should be notified out of band.
+      dependencies:
+        - target_context: "Restaurant"
+          relationship: "consumer"
+          description: >
+            Consumes OrderReadyForPickup event from the Restaurant context to
+            create new Delivery aggregates when food is ready for pickup.
+        - target_context: "Orders"
+          relationship: "consumer"
+          description: >
+            Consumes OrderCancelled event from the Orders context to cancel
+            deliveries that are still awaiting a driver.

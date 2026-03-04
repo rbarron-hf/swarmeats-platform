@@ -1,0 +1,90 @@
+story:
+  id: "RST-004-STORY"
+  ac_node_ref: "RST-004"
+  bounded_context: "Restaurant"
+  epic: "Restaurant Order Management"
+  feature: "Order Acceptance"
+  title: "Accept an incoming order with estimated preparation time"
+  user_story: >
+    As restaurant staff, I want to accept an incoming order and provide an
+    estimated preparation time so that the customer knows their order is
+    confirmed and the preparation workflow begins.
+  acceptance_criteria:
+    - id: "RST-004-AC-01"
+      given: >
+        A RestaurantOrder exists in the restaurant-orders container with the
+        given orderId and restaurantId and the RestaurantOrder is in Pending
+        status
+      when: >
+        Restaurant staff sends a POST request to
+        /restaurants/{restaurantId}/orders/{orderId}/accept with an
+        estimatedPrepMinutes value
+      then: >
+        The estimatedPrepMinutes is validated to be between 5 and 90 inclusive
+        per RST-R03
+    - id: "RST-004-AC-02"
+      given: >
+        A RestaurantOrder is in Pending status and estimatedPrepMinutes is
+        valid
+      when: >
+        Restaurant staff sends a POST request to accept the order
+      then: >
+        The RestaurantOrder status transitions from Pending to Accepted
+    - id: "RST-004-AC-03"
+      given: >
+        A RestaurantOrder is in Pending status and estimatedPrepMinutes is
+        valid
+      when: >
+        Restaurant staff sends a POST request to accept the order
+      then: >
+        The acceptedAt timestamp is recorded on the RestaurantOrder
+    - id: "RST-004-AC-04"
+      given: >
+        A RestaurantOrder is in Pending status and estimatedPrepMinutes is
+        valid
+      when: >
+        Restaurant staff sends a POST request to accept the order
+      then: >
+        An OrderAccepted event is published to the restaurant.order-accepted
+        Service Bus topic via the outbox pattern
+    - id: "RST-004-AC-05"
+      given: >
+        A RestaurantOrder is in Pending status and estimatedPrepMinutes is
+        valid
+      when: >
+        Restaurant staff sends a POST request to accept the order
+      then: >
+        HTTP 200 is returned with the updated RestaurantOrder
+  error_scenarios:
+    - id: "RST-004-ERR-01"
+      condition: "No RestaurantOrder found with the given orderId for the given restaurantId"
+      expected_behaviour: "HTTP 404 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+    - id: "RST-004-ERR-02"
+      condition: "RestaurantOrder exists but is not in Pending status (already accepted, rejected, or further along)"
+      expected_behaviour: "HTTP 409 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_PENDING"
+    - id: "RST-004-ERR-03"
+      condition: "estimatedPrepMinutes is less than 5 or greater than 90"
+      expected_behaviour: "HTTP 400 returned with error body"
+      error_code: "RESTAURANT_INVALID_PREP_TIME"
+  story_dependencies:
+    - story_id: "RST-003-STORY"
+      reason: "A RestaurantOrder must be created in Pending status via OrderPlaced event processing before it can be accepted"
+  story_type: "command"
+  estimated_points: 3
+  ddd_pattern: "aggregate_command"
+  ddd_notes: >
+    Enforces RST-R03 (prep time 5-90 min). Transitions RestaurantOrder
+    aggregate from Pending to Accepted. Raises OrderAccepted domain event via
+    outbox pattern. The Orders context consumes this event to transition the
+    order to Accepted status.
+  azure_function: "AcceptOrderFunction"
+  trigger_type: "HTTP POST"
+  traceability:
+    fdd_sections:
+      - "4.4 Business Rules (RST-R03)"
+      - "4.5 API Endpoints - POST /restaurants/{restaurantId}/orders/{orderId}/accept"
+      - "4.6 Domain Events Raised - OrderAccepted"
+    ac_node_ids:
+      - "RST-004"

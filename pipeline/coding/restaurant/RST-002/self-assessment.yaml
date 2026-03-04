@@ -1,0 +1,63 @@
+self_assessment:
+  story_id: "RST-002"
+  behaviour_name: "Get Active Orders"
+  bounded_context: "Restaurant"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary:
+    description: >
+      Read-only HTTP GET endpoint that retrieves restaurant orders with optional
+      status filtering. Uses MediatR query pattern with GetActiveOrdersQuery/
+      GetActiveOrdersQueryHandler. Validates status parameter at function level.
+    files_created:
+      - "src/Restaurant/Domain/Queries/GetActiveOrdersQuery.cs"
+      - "src/Restaurant/Domain/Queries/GetActiveOrdersQueryHandler.cs"
+      - "src/Restaurant/Functions/GetActiveOrdersFunction.cs"
+      - "tests/Restaurant.Tests/Unit/RST002Tests.cs"
+    files_reused:
+      - "src/Restaurant/Domain/Aggregates/RestaurantOrder.cs"
+      - "src/Restaurant/Infrastructure/Repositories/IRestaurantOrderRepository.cs"
+      - "src/Restaurant/Domain/ValueObjects/RestaurantOrderStatus.cs"
+
+  acceptance_criteria:
+    - id: "RST-002-AC-01"
+      description: "All orders returned when no status filter provided"
+      status: "implemented"
+      evidence: "GetActiveOrdersQueryHandler passes null status to repository"
+    - id: "RST-002-AC-02"
+      description: "Filtered orders returned when status parameter provided"
+      status: "implemented"
+      evidence: "Query passes parsed RestaurantOrderStatus enum to repository"
+    - id: "RST-002-AC-03"
+      description: "Each summary includes orderId, orderNumber, status, lineItems, timestamps"
+      status: "implemented"
+      evidence: "GetActiveOrderSummaryResponse contains all required fields"
+
+  error_conditions:
+    - id: "RST-002-ERR-01"
+      description: "HTTP 400 when invalid status provided"
+      error_code: "RESTAURANT_INVALID_STATUS"
+      status: "implemented"
+      evidence: "GetActiveOrdersFunction validates Enum.TryParse and returns 400"
+
+  domain_events: []
+
+  test_coverage:
+    unit_tests:
+      - "GetActiveOrders_WithoutStatusFilter_ReturnsAllOrders"
+      - "GetActiveOrders_WithStatusFilter_ReturnsFilteredOrders"
+      - "GetActiveOrders_OrderSummaryContainsExpectedFields"
+      - "GetActiveOrders_WhenNoOrders_ReturnsEmptyList"
+    test_count: 4
+    all_tests_have_assertions: true
+
+  business_rules_enforced: []
+
+  quality_checklist:
+    all_logic_in_aggregate: true
+    named_state_transitions: true
+    domain_events_inside_aggregate: true
+    outbox_pattern_used: false
+    immutable_value_objects: true
+    xml_doc_comments: true
+    idempotent_handlers: false

@@ -1,0 +1,36 @@
+ac_node:
+  id: "DLV-001"
+  bounded_context: "Delivery"
+  aggregate_root: "Delivery"
+  behaviour_name: "Handle OrderReadyForPickup Event"
+  trigger: "ServiceBus topic: restaurant.order-ready, subscription: delivery-context"
+  azure_function: "HandleOrderReadyForPickupFunction"
+  given:
+    - "An OrderReadyForPickup event is received from the Restaurant context"
+    - "The event payload contains orderId, restaurantId, restaurantAddress (street, city, postcode, latitude, longitude), and readyAt timestamp"
+    - "The event payload contains the order delivery address (street, city, postcode, latitude, longitude)"
+  when:
+    - "The event is processed by HandleOrderReadyForPickupFunction"
+  then:
+    - "A new Delivery aggregate is created in AwaitingDriver status"
+    - "The Delivery Route is set with pickup = restaurant address and dropoff = order delivery address"
+    - "The Delivery document is stored in the deliveries Cosmos DB container with sentinel partition key value 'unassigned'"
+    - "The readyAt timestamp from the event is recorded on the Delivery for SLA tracking"
+  error_conditions:
+    - condition: "Duplicate event (eventId already processed)"
+      expected: "Event is silently discarded (idempotent handling)"
+      error_code: "N/A"
+  data_contracts:
+    request_schema: "OrderReadyForPickup event envelope: { eventType: string, eventId: Guid, occurredAt: DateTimeOffset, sourceContext: string, payload: { orderId: Guid, restaurantId: Guid, restaurantAddress: { street: string, city: string, postcode: string, latitude: decimal, longitude: decimal }, deliveryAddress: { street: string, city: string, postcode: string, latitude: decimal, longitude: decimal }, readyAt: DateTimeOffset } }"
+    response_schema: "N/A (event handler, no HTTP response)"
+    domain_events:
+      - event_name: ""
+        target: ""
+        payload_fields: []
+  dependencies:
+    - context: "Restaurant"
+      type: "event_subscription"
+      description: "Subscribes to OrderReadyForPickup events on topic restaurant.order-ready to create new Delivery aggregates when food is ready for pickup."
+  estimated_complexity: 3
+  story_type: "integration"
+  notes: "The delivery address is sourced from the OrderReadyForPickup event payload which originates from the OrderPlaced event chain. The sentinel partition key 'unassigned' is used until a driver is assigned, at which point the document is migrated to the driver's partition key."

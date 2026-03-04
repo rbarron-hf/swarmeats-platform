@@ -1,0 +1,45 @@
+self_assessment:
+  story_id: "DLV-006"
+  behaviour_name: "Get Delivery Status"
+  bounded_context: "Delivery"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary: >
+    Implemented the GetDeliveryStatusFunction as an HTTP GET endpoint with
+    GetDeliveryStatusQuery and GetDeliveryStatusQueryHandler. The handler loads the
+    delivery from the repository and maps it to a response DTO containing full delivery
+    details. Driver location, estimated arrival, and driverId may be null for
+    AwaitingDriver deliveries.
+
+  files_created:
+    - "src/Delivery/Domain/Queries/GetDeliveryStatusQuery.cs"
+    - "src/Delivery/Domain/Queries/GetDeliveryStatusQueryHandler.cs"
+    - "src/Delivery/Functions/GetDeliveryStatusFunction.cs"
+    - "tests/Delivery.Tests/Unit/DLV006Tests.cs"
+
+  files_modified: []
+
+  acceptance_criteria_checklist:
+    - criterion: "Full delivery returned including status, driver location, route, and ETA"
+      met: true
+      evidence: "GetDeliveryStatusResponse includes all fields with nullable driver-related fields"
+    - criterion: "HTTP 200 returned with delivery object"
+      met: true
+      evidence: "Function returns HttpStatusCode.OK with result"
+
+  error_conditions_checklist:
+    - condition: "Delivery not found"
+      handled: true
+      evidence: "DeliveryNotFoundException -> HTTP 404 with DELIVERY_NOT_FOUND"
+
+  business_rules_enforced: []
+
+  test_coverage:
+    total_tests: 3
+    passing_tests: 3
+    test_categories:
+      - category: "Query handler"
+        count: 3
+
+  confidence_score: 98
+  notes: "Simple read query (complexity 1). Clean mapping from aggregate to response DTO."

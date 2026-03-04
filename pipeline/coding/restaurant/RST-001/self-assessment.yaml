@@ -1,0 +1,63 @@
+self_assessment:
+  story_id: "RST-001"
+  behaviour_name: "Get Menu"
+  bounded_context: "Restaurant"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary:
+    description: >
+      Read-only HTTP GET endpoint that retrieves a restaurant's full menu including
+      menu items (name, description, price, category, availability, prep time) and
+      operating hours. Uses MediatR query pattern with GetMenuQuery/GetMenuQueryHandler.
+    files_created:
+      - "src/Restaurant/Domain/Queries/GetMenuQuery.cs"
+      - "src/Restaurant/Domain/Queries/GetMenuQueryHandler.cs"
+      - "src/Restaurant/Functions/GetMenuFunction.cs"
+      - "tests/Restaurant.Tests/Unit/RST001Tests.cs"
+    files_reused:
+      - "src/Restaurant/Domain/Aggregates/Menu.cs"
+      - "src/Restaurant/Infrastructure/Repositories/IMenuRepository.cs"
+      - "src/Restaurant/Infrastructure/Repositories/CosmosMenuRepository.cs"
+      - "src/Restaurant/Domain/Exceptions/MenuNotFoundException.cs"
+
+  acceptance_criteria:
+    - id: "RST-001-AC-01"
+      description: "Full menu returned with HTTP 200 when restaurant exists"
+      status: "implemented"
+      evidence: "GetMenuQueryHandler loads menu via IMenuRepository and maps to GetMenuResponse DTO"
+    - id: "RST-001-AC-02"
+      description: "Response includes all menu items with required fields"
+      status: "implemented"
+      evidence: "GetMenuItemResponse includes menuItemId, name, description, price, category, isAvailable, preparationTimeMinutes"
+    - id: "RST-001-AC-03"
+      description: "Response includes operating hours"
+      status: "implemented"
+      evidence: "GetMenuOperatingHoursResponse includes openingTime and closingTime"
+
+  error_conditions:
+    - id: "RST-001-ERR-01"
+      description: "HTTP 404 when restaurant not found"
+      error_code: "RESTAURANT_NOT_FOUND"
+      status: "implemented"
+      evidence: "MenuNotFoundException thrown by handler, caught by function and mapped to 404"
+
+  domain_events: []
+
+  test_coverage:
+    unit_tests:
+      - "GetMenu_WhenMenuExists_ReturnsFullMenu"
+      - "GetMenu_ReturnsMenuItemsWithAllFields"
+      - "GetMenu_WhenMenuNotFound_ThrowsMenuNotFoundException"
+    test_count: 3
+    all_tests_have_assertions: true
+
+  business_rules_enforced: []
+
+  quality_checklist:
+    all_logic_in_aggregate: true
+    named_state_transitions: true
+    domain_events_inside_aggregate: true
+    outbox_pattern_used: false
+    immutable_value_objects: true
+    xml_doc_comments: true
+    idempotent_handlers: false

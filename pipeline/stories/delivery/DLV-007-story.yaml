@@ -1,0 +1,64 @@
+story:
+  id: "DLV-007-STORY"
+  ac_node_ref: "DLV-007"
+  bounded_context: "Delivery"
+  epic: "Delivery Lifecycle Management"
+  feature: "Estimated Arrival"
+  title: "Retrieve estimated arrival time for a delivery"
+  user_story: >
+    As a driver, I want to check the estimated arrival time for my current
+    delivery so that I can communicate expectations to the customer and plan
+    my route.
+  acceptance_criteria:
+    - id: "DLV-007-AC-01"
+      given: >
+        A delivery exists in the deliveries container and a driver has been
+        assigned to the delivery (delivery is in DriverAssigned or PickedUp
+        status)
+      when: >
+        A GET request is made to /deliveries/{deliveryId}/eta
+      then: >
+        The estimated arrival time is returned based on the driver's last
+        known location
+    - id: "DLV-007-AC-02"
+      given: >
+        A driver has been assigned to the delivery
+      when: >
+        A GET request is made to /deliveries/{deliveryId}/eta
+      then: >
+        The last location update timestamp is included in the response
+    - id: "DLV-007-AC-03"
+      given: >
+        A driver has been assigned to the delivery
+      when: >
+        A GET request is made to /deliveries/{deliveryId}/eta
+      then: >
+        HTTP 200 is returned with estimatedArrivalTime and
+        lastLocationTimestamp
+  error_scenarios:
+    - id: "DLV-007-ERR-01"
+      condition: "Delivery not found"
+      expected_behaviour: "HTTP 404 returned"
+      error_code: "DELIVERY_NOT_FOUND"
+    - id: "DLV-007-ERR-02"
+      condition: "No driver assigned yet (delivery in AwaitingDriver status)"
+      expected_behaviour: "HTTP 409 returned"
+      error_code: "DELIVERY_NO_DRIVER"
+  story_dependencies:
+    - story_id: "DLV-002-STORY"
+      reason: "A driver must be assigned before an estimated arrival time can be retrieved"
+  story_type: "query"
+  estimated_points: 1
+  ddd_pattern: "query_handler"
+  ddd_notes: >
+    Simple read query that returns the pre-calculated EstimatedArrival value
+    object from the Delivery aggregate. The ETA is updated on each driver
+    location ping (DLV-003) and on initial driver assignment (DLV-002). No
+    state changes or domain events.
+  azure_function: "GetEstimatedArrivalFunction"
+  trigger_type: "HTTP GET"
+  traceability:
+    fdd_sections:
+      - "5.4 API Endpoints - GET /deliveries/{deliveryId}/eta"
+    ac_node_ids:
+      - "DLV-007"

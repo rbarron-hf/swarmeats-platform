@@ -1,0 +1,188 @@
+story_index:
+  bounded_context: "Restaurant"
+  generated_at: "2026-03-03T00:00:00Z"
+  total_stories: 9
+  total_estimated_points: 24
+
+  stories:
+    - id: "RST-001-STORY"
+      ac_node_ref: "RST-001"
+      title: "Retrieve the full restaurant menu"
+      story_type: "query"
+      ddd_pattern: "query_handler"
+      estimated_points: 1
+      azure_function: "GetMenuFunction"
+      trigger_type: "HTTP GET"
+
+    - id: "RST-002-STORY"
+      ac_node_ref: "RST-002"
+      title: "Retrieve active orders for the restaurant dashboard"
+      story_type: "query"
+      ddd_pattern: "query_handler"
+      estimated_points: 2
+      azure_function: "GetActiveOrdersFunction"
+      trigger_type: "HTTP GET"
+
+    - id: "RST-003-STORY"
+      ac_node_ref: "RST-003"
+      title: "Process incoming OrderPlaced event and validate menu items"
+      story_type: "event-handler"
+      ddd_pattern: "domain_event_handler"
+      estimated_points: 5
+      azure_function: "HandleOrderPlacedFunction"
+      trigger_type: "ServiceBus Topic"
+
+    - id: "RST-004-STORY"
+      ac_node_ref: "RST-004"
+      title: "Accept an incoming order with estimated preparation time"
+      story_type: "command"
+      ddd_pattern: "aggregate_command"
+      estimated_points: 3
+      azure_function: "AcceptOrderFunction"
+      trigger_type: "HTTP POST"
+
+    - id: "RST-005-STORY"
+      ac_node_ref: "RST-005"
+      title: "Reject an incoming order with a reason code"
+      story_type: "command"
+      ddd_pattern: "aggregate_command"
+      estimated_points: 3
+      azure_function: "RejectOrderFunction"
+      trigger_type: "HTTP POST"
+
+    - id: "RST-006-STORY"
+      ac_node_ref: "RST-006"
+      title: "Mark an accepted order as Preparing"
+      story_type: "command"
+      ddd_pattern: "aggregate_command"
+      estimated_points: 2
+      azure_function: "UpdatePreparationStatusFunction"
+      trigger_type: "HTTP PUT"
+
+    - id: "RST-007-STORY"
+      ac_node_ref: "RST-007"
+      title: "Mark an order as ReadyForPickup and notify delivery"
+      story_type: "command"
+      ddd_pattern: "aggregate_command"
+      estimated_points: 3
+      azure_function: "UpdatePreparationStatusFunction"
+      trigger_type: "HTTP PUT"
+
+    - id: "RST-008-STORY"
+      ac_node_ref: "RST-008"
+      title: "Handle OrderCancelled event to cancel pending restaurant orders"
+      story_type: "event-handler"
+      ddd_pattern: "domain_event_handler"
+      estimated_points: 2
+      azure_function: "HandleOrderCancelledFunction"
+      trigger_type: "ServiceBus Topic"
+
+    - id: "RST-009-STORY"
+      ac_node_ref: "RST-009"
+      title: "Maintain read-optimised dashboard projection via Change Feed"
+      story_type: "infrastructure"
+      ddd_pattern: "projection"
+      estimated_points: 3
+      azure_function: "ActiveOrderDashboardFunction"
+      trigger_type: "Cosmos DB Change Feed"
+
+  dependency_graph:
+    # RST-001 has no dependencies — standalone menu read query
+    - story_id: "RST-001-STORY"
+      depends_on: []
+
+    # RST-002 depends on RST-003 (restaurant orders must exist to be queried)
+    - story_id: "RST-002-STORY"
+      depends_on:
+        - story_id: "RST-003-STORY"
+          type: "intra-context"
+          reason: "Restaurant orders must be created via incoming OrderPlaced events before they can be queried"
+
+    # RST-003 depends on ORD-001 (consumes OrderPlaced event)
+    - story_id: "RST-003-STORY"
+      depends_on:
+        - story_id: "ORD-001-STORY"
+          type: "cross-context"
+          reason: "Consumes the OrderPlaced event produced when a customer places an order"
+
+    # RST-004 depends on RST-003 (RestaurantOrder must be Pending)
+    - story_id: "RST-004-STORY"
+      depends_on:
+        - story_id: "RST-003-STORY"
+          type: "intra-context"
+          reason: "A RestaurantOrder must be created in Pending status via OrderPlaced event processing before it can be accepted"
+
+    # RST-005 depends on RST-003 (RestaurantOrder must be Pending)
+    - story_id: "RST-005-STORY"
+      depends_on:
+        - story_id: "RST-003-STORY"
+          type: "intra-context"
+          reason: "A RestaurantOrder must be created in Pending status via OrderPlaced event processing before it can be rejected"
+
+    # RST-006 depends on RST-004 (RestaurantOrder must be Accepted)
+    - story_id: "RST-006-STORY"
+      depends_on:
+        - story_id: "RST-004-STORY"
+          type: "intra-context"
+          reason: "The RestaurantOrder must be in Accepted status, which requires the AcceptOrder command to have been executed"
+
+    # RST-007 depends on RST-006 (RestaurantOrder must be Preparing)
+    - story_id: "RST-007-STORY"
+      depends_on:
+        - story_id: "RST-006-STORY"
+          type: "intra-context"
+          reason: "The RestaurantOrder must be in Preparing status, which requires the MarkPreparing command to have been executed"
+
+    # RST-008 depends on ORD-002 (consumes OrderCancelled) and RST-003 (RestaurantOrder may exist)
+    - story_id: "RST-008-STORY"
+      depends_on:
+        - story_id: "ORD-002-STORY"
+          type: "cross-context"
+          reason: "Consumes the OrderCancelled event produced when a customer cancels an order"
+        - story_id: "RST-003-STORY"
+          type: "intra-context"
+          reason: "The RestaurantOrder must have been created by the OrderPlaced handler before it can be cancelled"
+
+    # RST-009 depends on RST-003 (RestaurantOrder documents must exist for Change Feed)
+    - story_id: "RST-009-STORY"
+      depends_on:
+        - story_id: "RST-003-STORY"
+          type: "intra-context"
+          reason: "RestaurantOrder documents must exist in the restaurant-orders container before the Change Feed can detect changes"
+
+  event_flow:
+    produces:
+      - event: "OrderAccepted"
+        topic: "restaurant.order-accepted"
+        produced_by: "RST-004-STORY"
+        consumed_by:
+          - context: "Orders"
+            story: "ORD-005-STORY"
+      - event: "OrderRejected"
+        topic: "restaurant.order-rejected"
+        produced_by: "RST-005-STORY"
+        note: "Also auto-produced by RST-003-STORY on validation failure"
+        consumed_by:
+          - context: "Orders"
+            story: "ORD-006-STORY"
+      - event: "OrderReadyForPickup"
+        topic: "restaurant.order-ready"
+        produced_by: "RST-007-STORY"
+        consumed_by:
+          - context: "Orders"
+            story: "ORD-007-STORY"
+          - context: "Delivery"
+            story: "DLV-001-STORY"
+    consumes:
+      - event: "OrderPlaced"
+        topic: "orders.placed"
+        consumed_by: "RST-003-STORY"
+        produced_by:
+          context: "Orders"
+          story: "ORD-001-STORY"
+      - event: "OrderCancelled"
+        topic: "orders.cancelled"
+        consumed_by: "RST-008-STORY"
+        produced_by:
+          context: "Orders"
+          story: "ORD-002-STORY"

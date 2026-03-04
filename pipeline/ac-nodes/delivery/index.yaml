@@ -1,0 +1,70 @@
+ac_node_index:
+  bounded_context: "Delivery"
+  generated_at: "2026-03-03T00:00:00Z"
+  total_nodes: 9
+  total_estimated_points: 23
+  nodes:
+    - id: "DLV-001"
+      behaviour_name: "Handle OrderReadyForPickup Event"
+      aggregate_root: "Delivery"
+      estimated_complexity: 3
+      has_flags: false
+    - id: "DLV-002"
+      behaviour_name: "Assign Driver"
+      aggregate_root: "Delivery"
+      estimated_complexity: 6
+      has_flags: false
+    - id: "DLV-003"
+      behaviour_name: "Update Driver Location"
+      aggregate_root: "Delivery"
+      estimated_complexity: 3
+      has_flags: false
+    - id: "DLV-004"
+      behaviour_name: "Confirm Pickup"
+      aggregate_root: "Delivery"
+      estimated_complexity: 2
+      has_flags: false
+    - id: "DLV-005"
+      behaviour_name: "Complete Delivery"
+      aggregate_root: "Delivery"
+      estimated_complexity: 3
+      has_flags: false
+    - id: "DLV-006"
+      behaviour_name: "Get Delivery Status"
+      aggregate_root: "Delivery"
+      estimated_complexity: 1
+      has_flags: false
+    - id: "DLV-007"
+      behaviour_name: "Get Estimated Arrival"
+      aggregate_root: "Delivery"
+      estimated_complexity: 1
+      has_flags: false
+    - id: "DLV-008"
+      behaviour_name: "Unassigned Delivery Monitor"
+      aggregate_root: "Delivery"
+      estimated_complexity: 2
+      has_flags: false
+    - id: "DLV-009"
+      behaviour_name: "Handle Order Cancelled for Delivery"
+      aggregate_root: "Delivery"
+      estimated_complexity: 2
+      has_flags: false
+  aggregate_coverage:
+    - aggregate: "Delivery"
+      node_count: 9
+      commands:
+        - "AssignDriver"
+        - "UpdateDriverLocation"
+        - "ConfirmPickup"
+        - "CompleteDelivery"
+      queries:
+        - "GetDeliveryStatus"
+        - "GetEstimatedArrival"
+      event_handlers:
+        - "HandleOrderReadyForPickup"
+        - "HandleOrderCancelledDelivery"
+        - "UnassignedDeliveryCheck"
+  flag_summary:
+    total_flags: 0
+    blocking_flags: 0
+    ambiguity_flags: 0

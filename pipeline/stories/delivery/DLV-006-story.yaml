@@ -1,0 +1,50 @@
+story:
+  id: "DLV-006-STORY"
+  ac_node_ref: "DLV-006"
+  bounded_context: "Delivery"
+  epic: "Delivery Lifecycle Management"
+  feature: "Delivery Status Retrieval"
+  title: "Retrieve full delivery status and details"
+  user_story: >
+    As a driver, I want to view the complete delivery details including status,
+    route, and estimated arrival so that I have all the information needed to
+    complete the delivery.
+  acceptance_criteria:
+    - id: "DLV-006-AC-01"
+      given: >
+        A delivery exists in the deliveries container
+      when: >
+        A GET request is made to /deliveries/{deliveryId}
+      then: >
+        The full delivery is returned including status, driver location, route
+        (pickup and dropoff addresses), and estimated arrival
+    - id: "DLV-006-AC-02"
+      given: >
+        A delivery exists in the deliveries container
+      when: >
+        A GET request is made to /deliveries/{deliveryId}
+      then: >
+        HTTP 200 is returned with the delivery object
+  error_scenarios:
+    - id: "DLV-006-ERR-01"
+      condition: "Delivery not found"
+      expected_behaviour: "HTTP 404 returned"
+      error_code: "DELIVERY_NOT_FOUND"
+  story_dependencies:
+    - story_id: "DLV-001-STORY"
+      reason: "A delivery must exist before it can be queried"
+  story_type: "query"
+  estimated_points: 1
+  ddd_pattern: "query_handler"
+  ddd_notes: >
+    Simple read query against the deliveries Cosmos DB container. Returns the
+    full Delivery aggregate state. Driver location, estimated arrival, and
+    driverId may be null if still in AwaitingDriver status. No state changes
+    or domain events.
+  azure_function: "GetDeliveryStatusFunction"
+  trigger_type: "HTTP GET"
+  traceability:
+    fdd_sections:
+      - "5.4 API Endpoints - GET /deliveries/{deliveryId}"
+    ac_node_ids:
+      - "DLV-006"

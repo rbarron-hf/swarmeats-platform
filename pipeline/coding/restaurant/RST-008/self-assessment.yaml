@@ -1,0 +1,74 @@
+self_assessment:
+  story_id: "RST-008"
+  behaviour_name: "Handle Order Cancelled"
+  bounded_context: "Restaurant"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary:
+    description: >
+      Service Bus triggered function that processes OrderCancelled events from the
+      Orders context. If the RestaurantOrder is in Pending status, marks it as Cancelled.
+      If already Accepted or later, logs a warning and does not change state. If no
+      RestaurantOrder exists (race condition), logs and discards. No domain events raised.
+    files_created:
+      - "src/Restaurant/Functions/EventHandlers/HandleOrderCancelledFunction.cs"
+      - "src/Restaurant/Domain/Events/Consumed/OrderCancelledEvent.cs"
+      - "tests/Restaurant.Tests/Unit/RST008Tests.cs"
+    files_reused:
+      - "src/Restaurant/Domain/Aggregates/RestaurantOrder.cs"
+      - "src/Restaurant/Infrastructure/Repositories/IRestaurantOrderRepository.cs"
+
+  acceptance_criteria:
+    - id: "RST-008-AC-01"
+      description: "Pending orders are cancelled"
+      status: "implemented"
+      evidence: "RestaurantOrder.Cancel() returns true and sets Cancelled status"
+    - id: "RST-008-AC-02"
+      description: "Accepted/later orders log warning, no state change"
+      status: "implemented"
+      evidence: "Cancel() returns false for non-Pending statuses, handler logs warning"
+    - id: "RST-008-AC-03"
+      description: "Non-existent orders are logged and discarded"
+      status: "implemented"
+      evidence: "Handler checks for null order and completes message"
+    - id: "RST-008-AC-04"
+      description: "No domain events raised"
+      status: "implemented"
+      evidence: "Cancel() method does not call AddDomainEvent"
+
+  error_conditions:
+    - id: "RST-008-ERR-01"
+      description: "Duplicate events silently discarded"
+      error_code: "DUPLICATE_EVENT"
+      status: "implemented"
+      evidence: "Cancel() is idempotent (already cancelled returns false)"
+    - id: "RST-008-ERR-02"
+      description: "Cancellation too late logged as warning"
+      error_code: "CANCELLATION_TOO_LATE"
+      status: "implemented"
+      evidence: "Handler logs warning when Cancel() returns false"
+
+  domain_events: []
+
+  test_coverage:
+    unit_tests:
+      - "Cancel_WhenPending_TransitionsToCancelled"
+      - "Cancel_WhenPending_DoesNotRaiseDomainEvent"
+      - "Cancel_WhenAccepted_ReturnsFalse"
+      - "Cancel_WhenPreparing_ReturnsFalse"
+      - "Cancel_WhenReadyForPickup_ReturnsFalse"
+      - "Cancel_WhenAlreadyRejected_ReturnsFalse"
+      - "Cancel_WhenAlreadyCancelled_ReturnsFalse"
+    test_count: 7
+    all_tests_have_assertions: true
+
+  business_rules_enforced: []
+
+  quality_checklist:
+    all_logic_in_aggregate: true
+    named_state_transitions: true
+    domain_events_inside_aggregate: true
+    outbox_pattern_used: false
+    immutable_value_objects: true
+    xml_doc_comments: true
+    idempotent_handlers: true

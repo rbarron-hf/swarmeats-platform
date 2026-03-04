@@ -1,0 +1,77 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.0
+MinimumVisualStudioVersion = 10.0.40219.1
+
+# ═══════════════════════════════════════════════════════════════════
+# Source Projects — one per bounded context
+# ═══════════════════════════════════════════════════════════════════
+
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orders", "src\Orders\Orders.csproj", "{A1B2C3D4-0001-0000-0000-000000000001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Restaurant", "src\Restaurant\Restaurant.csproj", "{A1B2C3D4-0002-0000-0000-000000000002}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Delivery", "src\Delivery\Delivery.csproj", "{A1B2C3D4-0003-0000-0000-000000000003}"
+EndProject
+
+# ═══════════════════════════════════════════════════════════════════
+# Test Projects — one per bounded context
+# ═══════════════════════════════════════════════════════════════════
+
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orders.Tests", "tests\Orders.Tests\Orders.Tests.csproj", "{A1B2C3D4-0011-0000-0000-000000000011}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Restaurant.Tests", "tests\Restaurant.Tests\Restaurant.Tests.csproj", "{A1B2C3D4-0012-0000-0000-000000000012}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Delivery.Tests", "tests\Delivery.Tests\Delivery.Tests.csproj", "{A1B2C3D4-0013-0000-0000-000000000013}"
+EndProject
+
+# ═══════════════════════════════════════════════════════════════════
+# Solution Folders
+# ═══════════════════════════════════════════════════════════════════
+
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E0000001-0000-0000-0000-000000000001}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{E0000002-0000-0000-0000-000000000002}"
+EndProject
+
+Global
+    GlobalSection(SolutionConfigurationPlatforms) = preSolution
+        Debug|Any CPU = Debug|Any CPU
+        Release|Any CPU = Release|Any CPU
+    EndGlobalSection
+    GlobalSection(ProjectConfigurationPlatforms) = postSolution
+        {A1B2C3D4-0001-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {A1B2C3D4-0001-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {A1B2C3D4-0001-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {A1B2C3D4-0001-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+        {A1B2C3D4-0002-0000-0000-000000000002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {A1B2C3D4-0002-0000-0000-000000000002}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {A1B2C3D4-0002-0000-0000-000000000002}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {A1B2C3D4-0002-0000-0000-000000000002}.Release|Any CPU.Build.0 = Release|Any CPU
+        {A1B2C3D4-0003-0000-0000-000000000003}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {A1B2C3D4-0003-0000-0000-000000000003}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {A1B2C3D4-0003-0000-0000-000000000003}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {A1B2C3D4-0003-0000-0000-000000000003}.Release|Any CPU.Build.0 = Release|Any CPU
+        {A1B2C3D4-0011-0000-0000-000000000011}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {A1B2C3D4-0011-0000-0000-000000000011}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {A1B2C3D4-0011-0000-0000-000000000011}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {A1B2C3D4-0011-0000-0000-000000000011}.Release|Any CPU.Build.0 = Release|Any CPU
+        {A1B2C3D4-0012-0000-0000-000000000012}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {A1B2C3D4-0012-0000-0000-000000000012}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {A1B2C3D4-0012-0000-0000-000000000012}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {A1B2C3D4-0012-0000-0000-000000000012}.Release|Any CPU.Build.0 = Release|Any CPU
+        {A1B2C3D4-0013-0000-0000-000000000013}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {A1B2C3D4-0013-0000-0000-000000000013}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {A1B2C3D4-0013-0000-0000-000000000013}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {A1B2C3D4-0013-0000-0000-000000000013}.Release|Any CPU.Build.0 = Release|Any CPU
+    EndGlobalSection
+    GlobalSection(NestedProjects) = preSolution
+        {A1B2C3D4-0001-0000-0000-000000000001} = {E0000001-0000-0000-0000-000000000001}
+        {A1B2C3D4-0002-0000-0000-000000000002} = {E0000001-0000-0000-0000-000000000001}
+        {A1B2C3D4-0003-0000-0000-000000000003} = {E0000001-0000-0000-0000-000000000001}
+        {A1B2C3D4-0011-0000-0000-000000000011} = {E0000002-0000-0000-0000-000000000002}
+        {A1B2C3D4-0012-0000-0000-000000000012} = {E0000002-0000-0000-0000-000000000002}
+        {A1B2C3D4-0013-0000-0000-000000000013} = {E0000002-0000-0000-0000-000000000002}
+    EndGlobalSection
+EndGlobal

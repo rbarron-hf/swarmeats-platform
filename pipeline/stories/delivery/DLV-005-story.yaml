@@ -1,0 +1,95 @@
+story:
+  id: "DLV-005-STORY"
+  ac_node_ref: "DLV-005"
+  bounded_context: "Delivery"
+  epic: "Delivery Lifecycle Management"
+  feature: "Delivery Completion"
+  title: "Complete delivery and calculate SLA compliance"
+  user_story: >
+    As a driver, I want to confirm that I have delivered the food to the
+    customer so that the delivery lifecycle is completed, SLA compliance is
+    recorded, and the order is marked as delivered.
+  acceptance_criteria:
+    - id: "DLV-005-AC-01"
+      given: >
+        A delivery exists in the deliveries container and the delivery is in
+        PickedUp status and the driverId in the request matches the driver
+        assigned to the delivery
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/complete with
+        driverId
+      then: >
+        The delivery status transitions from PickedUp to Delivered
+    - id: "DLV-005-AC-02"
+      given: >
+        All validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/complete
+      then: >
+        The deliveredAt timestamp is recorded on the delivery
+    - id: "DLV-005-AC-03"
+      given: >
+        All validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/complete
+      then: >
+        totalDeliveryMinutes is calculated as the elapsed time from the
+        OrderReadyForPickup readyAt timestamp to the deliveredAt timestamp
+    - id: "DLV-005-AC-04"
+      given: >
+        All validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/complete
+      then: >
+        slaBreached flag is set to true if totalDeliveryMinutes exceeds 45
+        minutes, false otherwise
+    - id: "DLV-005-AC-05"
+      given: >
+        All validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/complete
+      then: >
+        A DeliveryCompleted domain event is raised and published to topic
+        delivery.completed with deliveryId, orderId, driverId, deliveredAt,
+        totalDeliveryMinutes, and slaBreached
+    - id: "DLV-005-AC-06"
+      given: >
+        All validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/complete
+      then: >
+        HTTP 200 is returned with the updated delivery (status = Delivered)
+  error_scenarios:
+    - id: "DLV-005-ERR-01"
+      condition: "Delivery not found"
+      expected_behaviour: "HTTP 404 returned"
+      error_code: "DELIVERY_NOT_FOUND"
+    - id: "DLV-005-ERR-02"
+      condition: "Delivery not in PickedUp status"
+      expected_behaviour: "HTTP 409 returned"
+      error_code: "DELIVERY_NOT_PICKED_UP"
+    - id: "DLV-005-ERR-03"
+      condition: "Driver ID does not match the assigned driver"
+      expected_behaviour: "HTTP 403 returned"
+      error_code: "DELIVERY_WRONG_DRIVER"
+  story_dependencies:
+    - story_id: "DLV-004-STORY"
+      reason: "The delivery must be in PickedUp status, which requires the ConfirmPickup command to have been executed"
+  story_type: "command"
+  estimated_points: 3
+  ddd_pattern: "aggregate_command"
+  ddd_notes: >
+    Terminal state transition for the Delivery aggregate. Enforces DLV-R05
+    (only from PickedUp status). Calculates totalDeliveryMinutes and
+    slaBreached flag per DLV-R03 (45-minute SLA). Raises DeliveryCompleted
+    domain event via outbox pattern, consumed by Orders context to mark the
+    order as Delivered.
+  azure_function: "CompleteDeliveryFunction"
+  trigger_type: "HTTP POST"
+  traceability:
+    fdd_sections:
+      - "5.3 Business Rules (DLV-R03, DLV-R05)"
+      - "5.4 API Endpoints - POST /deliveries/{deliveryId}/complete"
+      - "5.5 Domain Events Raised - DeliveryCompleted"
+    ac_node_ids:
+      - "DLV-005"

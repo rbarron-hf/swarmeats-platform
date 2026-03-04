@@ -1,0 +1,17 @@
+routing_decision:
+  story_id: "DLV-001"
+  bounded_context: "Delivery"
+  scores:
+    ac_node_count: 0        # 1 AC node -> 0
+    file_surface_area: 1    # Event handler, Delivery aggregate, Route VO, DriverLocation VO, EstimatedArrival VO, event DTO, idempotency, tests -> ~8 files -> 1
+    integration_boundaries: 1  # Consumes OrderReadyForPickup from Restaurant context -> 1
+    shared_aggregate: 0     # Delivery aggregate owned solely by Delivery context -> 0
+    error_condition_density: 0  # 1 error condition (duplicate event, silently discarded) -> 0
+    domain_logic_depth: 1   # Aggregate creation with sentinel partition key, route construction from pickup/dropoff addresses, SLA tracking timestamp recording -> 1
+    estimated_complexity: 1  # Complexity 3 -> 1
+  total_score: 4
+  routing: "single_agent"
+  override_applied: null
+  rationale: "Handle OrderReadyForPickup creates a new Delivery aggregate in AwaitingDriver status with route information and sentinel partition key 'unassigned'. The aggregate construction involves multiple value objects (Route, DriverLocation, EstimatedArrival) but the logic is straightforward initialization. Idempotency via eventId prevents duplicate processing."
+  recommended_subagent_tasks: []
+  recommended_swarm_workers: []

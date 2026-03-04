@@ -1,0 +1,91 @@
+self_assessment:
+  story_id: "DLV-002"
+  behaviour_name: "Assign Driver"
+  bounded_context: "Delivery"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary: >
+    Implemented the most complex story in the Delivery context. The AssignDriverFunction
+    is an HTTP POST endpoint that validates delivery existence, driver availability
+    (DLV-R01 via IDriverRepository), and delegates to the aggregate's AssignDriver()
+    method which enforces the Haversine distance check (DLV-R02). On success, the
+    handler performs a partition key migration from 'unassigned' to the driver's partition
+    key via MigratePartitionKeyAsync. The aggregate calculates initial estimated arrival
+    and raises a DriverAssigned domain event.
+
+  files_created:
+    - "src/Delivery/Domain/Commands/AssignDriverCommand.cs"
+    - "src/Delivery/Domain/Commands/AssignDriverCommandHandler.cs"
+    - "src/Delivery/Functions/AssignDriverFunction.cs"
+    - "src/Delivery/Domain/Events/DriverAssigned.cs"
+    - "src/Delivery/Domain/ValueObjects/GeoCalculations.cs"
+    - "src/Delivery/Domain/Exceptions/DriverNotAvailableException.cs"
+    - "src/Delivery/Domain/Exceptions/DriverTooFarException.cs"
+    - "src/Delivery/Infrastructure/Repositories/IDriverRepository.cs"
+    - "src/Delivery/Infrastructure/Repositories/CosmosDriverRepository.cs"
+    - "tests/Delivery.Tests/Unit/DLV002Tests.cs"
+    - "tests/Delivery.Tests/Unit/GeoCalculationsTests.cs"
+
+  files_modified: []
+
+  acceptance_criteria_checklist:
+    - criterion: "Delivery status transitions from AwaitingDriver to DriverAssigned"
+      met: true
+      evidence: "AssignDriver() method sets Status = DeliveryStatus.DriverAssigned"
+    - criterion: "driverId recorded on the delivery"
+      met: true
+      evidence: "DriverId property set in AssignDriver()"
+    - criterion: "Driver's initial location stored as DriverLocation"
+      met: true
+      evidence: "DriverLocation value object created with lat, lon, timestamp"
+    - criterion: "EstimatedArrival calculated"
+      met: true
+      evidence: "EstimateTravelMinutes used for driver->restaurant + restaurant->customer"
+    - criterion: "DriverAssigned domain event raised"
+      met: true
+      evidence: "AddDomainEvent(new DriverAssigned{...}) called in AssignDriver()"
+    - criterion: "Document migrated from 'unassigned' to driver's partition key"
+      met: true
+      evidence: "Handler calls MigratePartitionKeyAsync which deletes from 'unassigned' and saves under driver partition"
+    - criterion: "HTTP 200 returned with updated delivery"
+      met: true
+      evidence: "AssignDriverFunction returns HttpStatusCode.OK with AssignDriverResult"
+
+  error_conditions_checklist:
+    - condition: "Delivery not found"
+      handled: true
+      evidence: "DeliveryNotFoundException -> HTTP 404"
+    - condition: "Delivery not in AwaitingDriver status"
+      handled: true
+      evidence: "InvalidDeliveryStateException with DELIVERY_ALREADY_ASSIGNED -> HTTP 409"
+    - condition: "Driver already has an active delivery"
+      handled: true
+      evidence: "DriverNotAvailableException with DRIVER_NOT_AVAILABLE -> HTTP 409"
+    - condition: "Driver too far from restaurant (> 5km)"
+      handled: true
+      evidence: "DriverTooFarException with DRIVER_TOO_FAR -> HTTP 400"
+
+  business_rules_enforced:
+    - rule_id: "DLV-R01"
+      description: "Driver must be available (no active delivery)"
+      implementation: "IDriverRepository.HasActiveDeliveryAsync checked in handler before aggregate call"
+    - rule_id: "DLV-R02"
+      description: "Driver must be within 5km of restaurant (Haversine)"
+      implementation: "GeoCalculations.CalculateDistanceKm in aggregate AssignDriver()"
+    - rule_id: "DLV-R04"
+      description: "Customer notified on driver assignment"
+      implementation: "DriverAssigned domain event raised for downstream contexts"
+
+  test_coverage:
+    total_tests: 8
+    passing_tests: 8
+    test_categories:
+      - category: "Aggregate state transitions"
+        count: 4
+      - category: "Error conditions"
+        count: 3
+      - category: "Handler orchestration"
+        count: 1
+
+  confidence_score: 95
+  notes: "Highest complexity story (6 points). All three error factors handled: Haversine distance, partition key migration, and cross-partition driver availability check."

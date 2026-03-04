@@ -1,0 +1,17 @@
+routing_decision:
+  story_id: "DLV-006"
+  bounded_context: "Delivery"
+  scores:
+    ac_node_count: 0        # 1 AC node -> 0
+    file_surface_area: 0    # Query handler, response DTO, tests -> ~3 files -> 0
+    integration_boundaries: 0  # No external dependencies -> 0
+    shared_aggregate: 0     # Delivery aggregate owned solely by Delivery context -> 0
+    error_condition_density: 0  # 1 error condition (DELIVERY_NOT_FOUND) -> 0
+    domain_logic_depth: 0   # Simple Cosmos DB read, nullable field handling -> 0
+    estimated_complexity: 0  # Complexity 1 -> 0
+  total_score: 0
+  routing: "single_agent"
+  override_applied: null
+  rationale: "GetDeliveryStatus is a simple read query returning the full delivery state. Driver location, ETA, and driverId may be null if still in AwaitingDriver status. No state changes, no events, minimal error handling."
+  recommended_subagent_tasks: []
+  recommended_swarm_workers: []

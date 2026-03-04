@@ -1,0 +1,17 @@
+routing_decision:
+  story_id: "ORD-002"
+  bounded_context: "Orders"
+  scores:
+    ac_node_count: 0        # 1 AC node -> 0
+    file_surface_area: 1    # Command handler, cancel logic on aggregate, OrderCancelled event, DTOs, validator, tests -> ~7 files -> 1
+    integration_boundaries: 0  # Downstream only (OrderCancelled published, not consumed from external) -> 0
+    shared_aggregate: 0     # Order aggregate owned solely by Orders context -> 0
+    error_condition_density: 0  # 2 error conditions (ORDER_NOT_FOUND, ORDER_CANNOT_CANCEL) -> 0
+    domain_logic_depth: 1   # State machine check (only Placed -> Cancelled), moderate rule enforcement -> 1
+    estimated_complexity: 1  # Complexity 3 -> 1
+  total_score: 3
+  routing: "single_agent"
+  override_applied: null
+  rationale: "CancelOrder is a straightforward command with a single state transition (Placed -> Cancelled) and only 2 error conditions. The domain logic is limited to a status check. Outbox-pattern event publishing is the only infrastructure concern."
+  recommended_subagent_tasks: []
+  recommended_swarm_workers: []

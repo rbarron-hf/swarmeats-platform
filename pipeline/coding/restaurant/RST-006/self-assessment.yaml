@@ -1,0 +1,70 @@
+self_assessment:
+  story_id: "RST-006"
+  behaviour_name: "Mark Preparing"
+  bounded_context: "Restaurant"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary:
+    description: >
+      HTTP PUT endpoint (shared with RST-007 via UpdatePreparationStatusFunction)
+      for marking a restaurant order as Preparing. Uses MediatR command pattern.
+      State transition Accepted -> Preparing enforced inside the aggregate.
+      No domain event raised for this transition.
+    files_created:
+      - "src/Restaurant/Domain/Commands/MarkPreparingCommand.cs"
+      - "src/Restaurant/Domain/Commands/MarkPreparingCommandHandler.cs"
+      - "src/Restaurant/Functions/UpdatePreparationStatusFunction.cs"
+      - "tests/Restaurant.Tests/Unit/RST006Tests.cs"
+    files_reused:
+      - "src/Restaurant/Domain/Aggregates/RestaurantOrder.cs"
+      - "src/Restaurant/Infrastructure/Repositories/IRestaurantOrderRepository.cs"
+
+  acceptance_criteria:
+    - id: "RST-006-AC-01"
+      description: "Order transitions from Accepted to Preparing"
+      status: "implemented"
+      evidence: "RestaurantOrder.MarkPreparing() transitions status and sets PreparingAt"
+    - id: "RST-006-AC-02"
+      description: "No domain event raised"
+      status: "implemented"
+      evidence: "MarkPreparing() does not call AddDomainEvent"
+    - id: "RST-006-AC-03"
+      description: "HTTP 200 returned with updated order"
+      status: "implemented"
+      evidence: "UpdatePreparationStatusFunction routes 'Preparing' to MarkPreparingCommand"
+
+  error_conditions:
+    - id: "RST-006-ERR-01"
+      description: "HTTP 404 when order not found"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+      status: "implemented"
+      evidence: "RestaurantOrderNotFoundException caught and mapped to 404"
+    - id: "RST-006-ERR-02"
+      description: "HTTP 409 when invalid state transition"
+      error_code: "RESTAURANT_INVALID_TRANSITION"
+      status: "implemented"
+      evidence: "InvalidOrderStateException caught and mapped to 409"
+
+  domain_events: []
+
+  test_coverage:
+    unit_tests:
+      - "MarkPreparing_WhenAccepted_TransitionsToPreparing"
+      - "MarkPreparing_DoesNotRaiseDomainEvent"
+      - "MarkPreparing_WhenNotAccepted_ThrowsInvalidOrderStateException"
+      - "MarkPreparing_WhenAlreadyPreparing_ThrowsInvalidOrderStateException"
+      - "MarkPreparing_WhenOrderNotFound_ThrowsRestaurantOrderNotFoundException"
+      - "MarkPreparing_WhenSuccessful_ReturnsResultAndSaves"
+    test_count: 6
+    all_tests_have_assertions: true
+
+  business_rules_enforced: []
+
+  quality_checklist:
+    all_logic_in_aggregate: true
+    named_state_transitions: true
+    domain_events_inside_aggregate: true
+    outbox_pattern_used: false
+    immutable_value_objects: true
+    xml_doc_comments: true
+    idempotent_handlers: false

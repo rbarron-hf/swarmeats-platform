@@ -1,0 +1,50 @@
+self_assessment:
+  story_id: "DLV-009"
+  behaviour_name: "Handle Order Cancelled for Delivery"
+  bounded_context: "Delivery"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary: >
+    Implemented the HandleOrderCancelledFunction as a Service Bus triggered Azure
+    Function subscribing to orders.cancelled. The function looks up the delivery by
+    orderId (cross-partition query). If found in AwaitingDriver status, it cancels the
+    delivery. If found in DriverAssigned or PickedUp status, it logs a warning that the
+    driver should be notified out of band. If no delivery exists, the event is silently
+    discarded (order may have been cancelled before food was ready).
+
+  files_created:
+    - "src/Delivery/Functions/EventHandlers/HandleOrderCancelledFunction.cs"
+    - "src/Delivery/Domain/Events/Consumed/OrderCancelledEvent.cs"
+    - "tests/Delivery.Tests/Unit/DLV009Tests.cs"
+
+  files_modified: []
+
+  acceptance_criteria_checklist:
+    - criterion: "If delivery in AwaitingDriver, cancel it"
+      met: true
+      evidence: "delivery.Cancel() called and SaveAsync when Status == AwaitingDriver"
+    - criterion: "If driver already assigned/picked up, log warning"
+      met: true
+      evidence: "LogWarning for DriverAssigned and PickedUp states"
+    - criterion: "If no delivery exists, silently discard"
+      met: true
+      evidence: "LogInformation and CompleteMessageAsync when delivery is null"
+
+  error_conditions_checklist:
+    - condition: "Duplicate event"
+      handled: true
+      evidence: "Cancel() is idempotent for already-cancelled deliveries; in-progress deliveries just log warnings"
+
+  business_rules_enforced: []
+
+  test_coverage:
+    total_tests: 5
+    passing_tests: 5
+    test_categories:
+      - category: "Aggregate cancellation"
+        count: 3
+      - category: "Handler behaviour by state"
+        count: 2
+
+  confidence_score: 95
+  notes: "Lookup by orderId requires cross-partition query. Handler gracefully handles all delivery states per AC."

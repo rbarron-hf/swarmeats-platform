@@ -1,0 +1,64 @@
+story:
+  id: "ORD-006-STORY"
+  ac_node_ref: "ORD-006"
+  bounded_context: "Orders"
+  epic: "Order Lifecycle Management"
+  feature: "Order Status Progression"
+  title: "Handle OrderRejected event to progress order to Rejected"
+  user_story: >
+    As the system, I need to consume the OrderRejected event from the
+    Restaurant context so that the order status is updated to Rejected and the
+    customer is informed that the restaurant could not fulfil their order.
+  acceptance_criteria:
+    - id: "ORD-006-AC-01"
+      given: >
+        An order exists with the specified orderId in the Cosmos DB orders
+        container and the order has status Placed
+      when: >
+        An OrderRejected event is received from the Restaurant context on
+        topic restaurant.order-rejected
+      then: >
+        The order status transitions from Placed to Rejected
+    - id: "ORD-006-AC-02"
+      given: >
+        An order exists with the specified orderId and the order has status
+        Placed
+      when: >
+        An OrderRejected event is received from the Restaurant context on
+        topic restaurant.order-rejected
+      then: >
+        The rejectedAt timestamp is recorded on the order
+    - id: "ORD-006-AC-03"
+      given: >
+        An order exists with the specified orderId and the order has status
+        Placed
+      when: >
+        An OrderRejected event is received from the Restaurant context on
+        topic restaurant.order-rejected
+      then: >
+        The updated order is persisted to Cosmos DB orders container
+  error_scenarios:
+    - id: "ORD-006-ERR-01"
+      condition: "The order status transition is invalid (e.g. order already Cancelled)"
+      expected_behaviour: "A warning is logged and the event is discarded without throwing an exception"
+      error_code: "ORDER_INVALID_TRANSITION"
+  story_dependencies:
+    - story_id: "ORD-001-STORY"
+      reason: "An order must be in Placed status before it can be rejected"
+    - story_id: "RST-005-STORY"
+      reason: "The OrderRejected event is produced by the Restaurant context RejectOrder command"
+  story_type: "event-handler"
+  estimated_points: 2
+  ddd_pattern: "domain_event_handler"
+  ddd_notes: >
+    Consumes OrderRejected integration event from Restaurant context. Must be
+    idempotent using eventId to detect duplicates. Invalid transitions are
+    logged as warnings and discarded to prevent poison messages on Service Bus.
+    No domain events are raised.
+  azure_function: "HandleOrderRejectedFunction"
+  trigger_type: "ServiceBus Topic"
+  traceability:
+    fdd_sections:
+      - "3.6 Domain Events Consumed - OrderRejected"
+    ac_node_ids:
+      - "ORD-006"

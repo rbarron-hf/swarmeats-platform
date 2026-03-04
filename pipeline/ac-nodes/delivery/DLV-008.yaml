@@ -1,0 +1,31 @@
+ac_node:
+  id: "DLV-008"
+  bounded_context: "Delivery"
+  aggregate_root: "Delivery"
+  behaviour_name: "Unassigned Delivery Monitor"
+  trigger: "Timer: every 30 seconds (schedule: '*/30 * * * * *')"
+  azure_function: "UnassignedDeliveryCheckFunction"
+  given:
+    - "Some deliveries exist in the deliveries container in AwaitingDriver status"
+    - "Some of these deliveries have been in AwaitingDriver status for more than 5 minutes"
+  when:
+    - "The timer fires (every 30 seconds)"
+  then:
+    - "The function queries the deliveries container for all deliveries in AwaitingDriver status with createdAt older than 5 minutes"
+    - "For each overdue delivery found, a warning is logged with delivery details"
+    - "A metric counter is incremented for each overdue delivery (for operational dashboards and alerting)"
+  error_conditions:
+    - condition: "No overdue deliveries found"
+      expected: "Function completes silently with no warnings logged"
+      error_code: "N/A"
+  data_contracts:
+    request_schema: "N/A (timer trigger, no HTTP request)"
+    response_schema: "N/A (timer trigger, no HTTP response)"
+    domain_events:
+      - event_name: ""
+        target: ""
+        payload_fields: []
+  dependencies: []
+  estimated_complexity: 2
+  story_type: "infrastructure"
+  notes: "This function does NOT auto-assign drivers. It is for operational monitoring only. Driver assignment is manual through the POST /deliveries/{deliveryId}/assign API endpoint. The query targets the 'unassigned' sentinel partition key since all AwaitingDriver deliveries are stored under that partition."

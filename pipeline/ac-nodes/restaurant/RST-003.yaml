@@ -1,0 +1,55 @@
+ac_node:
+  id: "RST-003"
+  bounded_context: "Restaurant"
+  aggregate_root: "RestaurantOrder"
+  behaviour_name: "Process Incoming Order"
+  trigger: "ServiceBus topic: orders.placed, subscription: restaurant-context"
+  azure_function: "HandleOrderPlacedFunction"
+  given:
+    - "An OrderPlaced event is received from the Orders context on the orders.placed topic"
+    - "The event payload contains orderId, orderNumber, customerId, restaurantId, lineItems (each with menuItemId, menuItemName, quantity, unitPrice), deliveryAddress, orderTotal, and placedAt"
+    - "The restaurant has an active menu in the menus Cosmos DB container with operating hours and menu items"
+  when:
+    - "The HandleOrderPlacedFunction processes the OrderPlaced event"
+  then:
+    - "The handler reads the restaurant menu from the menus container using the restaurantId"
+    - "The handler validates the restaurant is within operating hours (current time between openingTime and closingTime UTC on the Menu aggregate) per RST-R01"
+    - "The handler validates every lineItem references a menuItemId that exists in the menu and is marked as available per RST-R02"
+    - "If both validations pass: a new RestaurantOrder document is created in the restaurant-orders container with status Pending"
+    - "If the restaurant is outside operating hours: the RestaurantOrder is created and immediately auto-rejected with reason code RESTAURANT_CLOSED, and an OrderRejected event is published to restaurant.order-rejected"
+    - "If any line item references an unavailable or non-existent menu item: the RestaurantOrder is created and immediately auto-rejected with reason code ITEM_UNAVAILABLE, and an OrderRejected event is published with the unavailableItemIds array populated"
+    - "The handler must be idempotent using eventId to prevent duplicate processing"
+  error_conditions:
+    - condition: "Restaurant is outside operating hours (current UTC time not between openingTime and closingTime on Menu)"
+      expected: "RestaurantOrder auto-rejected; OrderRejected event raised with reasonCode RESTAURANT_CLOSED"
+      error_code: "RST-R01"
+    - condition: "One or more line items reference a menu item that does not exist or is not marked as available"
+      expected: "RestaurantOrder auto-rejected; OrderRejected event raised with reasonCode ITEM_UNAVAILABLE and unavailableItemIds populated"
+      error_code: "RST-R02"
+    - condition: "Duplicate event (same eventId already processed)"
+      expected: "Event silently discarded; no state change"
+      error_code: "DUPLICATE_EVENT"
+  data_contracts:
+    request_schema: "ServiceBus message envelope: { eventType: 'OrderPlaced', eventId: Guid, occurredAt: DateTimeOffset, sourceContext: 'Orders', payload: { orderId: Guid, orderNumber: string, customerId: Guid, restaurantId: Guid, lineItems: [ { menuItemId: Guid, menuItemName: string, quantity: int, unitPrice: decimal } ], deliveryAddress: { street: string, city: string, postcode: string, latitude: decimal, longitude: decimal }, orderTotal: decimal, placedAt: DateTimeOffset } }"
+    response_schema: "No HTTP response (ServiceBus trigger). Side effects: RestaurantOrder document written to restaurant-orders container."
+    domain_events:
+      - event_name: "OrderRejected"
+        target: "restaurant.order-rejected"
+        payload_fields:
+          - name: "orderId"
+            type: "Guid"
+          - name: "restaurantId"
+            type: "Guid"
+          - name: "reasonCode"
+            type: "string"
+          - name: "unavailableItemIds"
+            type: "array of Guid"
+          - name: "rejectedAt"
+            type: "DateTimeOffset"
+  dependencies:
+    - context: "Orders"
+      type: "event_subscription"
+      description: "Subscribes to OrderPlaced events on the orders.placed Service Bus topic via the restaurant-context subscription. This is the trigger for creating RestaurantOrder aggregates."
+  estimated_complexity: 5
+  story_type: "integration"
+  notes: "This is the most complex node in the Restaurant context. It must: (1) consume an external event, (2) read the menu for validation, (3) validate operating hours (RST-R01) AND menu item availability (RST-R02), (4) create the RestaurantOrder, (5) conditionally publish an OrderRejected event via the outbox pattern if auto-rejecting. The handler must be idempotent. Operating hours validation uses openingTime/closingTime UTC fields on the Menu aggregate. Item availability validation checks each lineItem.menuItemId against MenuItem entities where isAvailable is true."

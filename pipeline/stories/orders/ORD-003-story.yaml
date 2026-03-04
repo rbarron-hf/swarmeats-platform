@@ -1,0 +1,51 @@
+story:
+  id: "ORD-003-STORY"
+  ac_node_ref: "ORD-003"
+  bounded_context: "Orders"
+  epic: "Order Lifecycle Management"
+  feature: "Order Retrieval"
+  title: "Retrieve full order details by order ID"
+  user_story: >
+    As a customer, I want to view the complete details of my order including
+    line items, current status, and timestamps so that I can track its progress
+    through the fulfilment lifecycle.
+  acceptance_criteria:
+    - id: "ORD-003-AC-01"
+      given: >
+        An order exists with the specified orderId in the Cosmos DB orders
+        container
+      when: >
+        GET /orders/{orderId} is called
+      then: >
+        The full order is returned including line items, current status, and
+        timestamps for each state transition
+    - id: "ORD-003-AC-02"
+      given: >
+        An order exists with the specified orderId in the Cosmos DB orders
+        container
+      when: >
+        GET /orders/{orderId} is called
+      then: >
+        HTTP 200 is returned with the complete order object
+  error_scenarios:
+    - id: "ORD-003-ERR-01"
+      condition: "Order with the specified orderId does not exist"
+      expected_behaviour: "HTTP 404 returned with error"
+      error_code: "ORDER_NOT_FOUND"
+  story_dependencies:
+    - story_id: "ORD-001-STORY"
+      reason: "An order must exist before it can be retrieved"
+  story_type: "query"
+  estimated_points: 1
+  ddd_pattern: "query_handler"
+  ddd_notes: >
+    Simple read query against the orders Cosmos DB container. Returns the full
+    Order aggregate state including all status transition timestamps. No state
+    changes or domain events are produced.
+  azure_function: "GetOrderFunction"
+  trigger_type: "HTTP GET"
+  traceability:
+    fdd_sections:
+      - "3.4 API Endpoints - GET /orders/{orderId}"
+    ac_node_ids:
+      - "ORD-003"

@@ -1,0 +1,72 @@
+story:
+  id: "ORD-004-STORY"
+  ac_node_ref: "ORD-004"
+  bounded_context: "Orders"
+  epic: "Order Lifecycle Management"
+  feature: "Order History"
+  title: "Retrieve paginated order history for a customer"
+  user_story: >
+    As a customer, I want to view my order history sorted by most recent first
+    with pagination so that I can review past orders without loading everything
+    at once.
+  acceptance_criteria:
+    - id: "ORD-004-AC-01"
+      given: >
+        A valid customerId (non-empty Guid) is provided as a query parameter
+        and the customer has one or more orders in the Cosmos DB orders
+        container
+      when: >
+        GET /orders?customerId={customerId} is called, optionally with
+        continuationToken query parameter
+      then: >
+        A paginated list of order summaries is returned, sorted by creation
+        date descending
+    - id: "ORD-004-AC-02"
+      given: >
+        A valid customerId is provided and multiple pages of orders exist
+      when: >
+        GET /orders?customerId={customerId} is called, optionally with
+        continuationToken query parameter
+      then: >
+        Each summary includes orderId, orderNumber, restaurant name, total,
+        status, and created date
+    - id: "ORD-004-AC-03"
+      given: >
+        A valid customerId is provided and more results exist beyond the
+        current page
+      when: >
+        GET /orders?customerId={customerId} is called, optionally with
+        continuationToken query parameter
+      then: >
+        If more results exist, a continuationToken is included for the next
+        page
+    - id: "ORD-004-AC-04"
+      given: >
+        A valid customerId is provided
+      when: >
+        GET /orders?customerId={customerId} is called
+      then: >
+        HTTP 200 is returned with the array of order summaries and optional
+        continuation token
+  error_scenarios:
+    - id: "ORD-004-ERR-01"
+      condition: "customerId query parameter is empty or invalid Guid"
+      expected_behaviour: "HTTP 400 returned with error"
+      error_code: "ORDER_INVALID_CUSTOMER"
+  story_dependencies:
+    - story_id: "ORD-001-STORY"
+      reason: "Orders must exist before they can be listed for a customer"
+  story_type: "query"
+  estimated_points: 2
+  ddd_pattern: "query_handler"
+  ddd_notes: >
+    Reads from the orders Cosmos DB container partitioned by customerId.
+    Supports pagination via Cosmos DB continuation tokens. Returns order
+    summaries (projection), not the full aggregate state.
+  azure_function: "GetOrdersByCustomerFunction"
+  trigger_type: "HTTP GET"
+  traceability:
+    fdd_sections:
+      - "3.4 API Endpoints - GET /orders?customerId={customerId}"
+    ac_node_ids:
+      - "ORD-004"

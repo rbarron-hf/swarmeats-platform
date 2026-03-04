@@ -1,0 +1,43 @@
+ac_node:
+  id: "ORD-005"
+  bounded_context: "Orders"
+  aggregate_root: "Order"
+  behaviour_name: "Handle OrderAccepted event"
+  trigger: "ServiceBus topic: restaurant.order-accepted, subscription: orders-context"
+  azure_function: "HandleOrderAcceptedFunction"
+  given:
+    - "An order exists with the specified orderId in the Cosmos DB orders container"
+    - "The order has status Placed"
+  when:
+    - "An OrderAccepted event is received from the Restaurant context on topic restaurant.order-accepted"
+  then:
+    - "The order status transitions from Placed to Accepted"
+    - "The acceptedAt timestamp is recorded on the order"
+    - "The updated order is persisted to Cosmos DB orders container"
+  error_conditions:
+    - condition: "The order status transition is invalid (e.g. order already Cancelled or Rejected)"
+      expected: "A warning is logged and the event is discarded without throwing an exception"
+      error_code: "ORDER_INVALID_TRANSITION"
+  data_contracts:
+    request_schema: |
+      {
+        "eventType": "OrderAccepted",
+        "eventId": "Guid",
+        "occurredAt": "DateTimeOffset",
+        "sourceContext": "Restaurant",
+        "payload": {
+          "orderId": "Guid",
+          "restaurantId": "Guid",
+          "estimatedPrepMinutes": "int",
+          "acceptedAt": "DateTimeOffset"
+        }
+      }
+    response_schema: ""
+    domain_events: []
+  dependencies:
+    - context: "Restaurant"
+      type: "async-upstream"
+      description: "Consumes OrderAccepted event from Restaurant context via Service Bus topic restaurant.order-accepted"
+  estimated_complexity: 2
+  story_type: "event-handler"
+  notes: "Event handler must be idempotent using eventId to detect duplicates. Invalid transitions are logged as warnings and discarded to prevent poison message scenarios on Service Bus. No domain events are raised by this handler."

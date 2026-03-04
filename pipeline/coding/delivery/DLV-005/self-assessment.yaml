@@ -1,0 +1,74 @@
+self_assessment:
+  story_id: "DLV-005"
+  behaviour_name: "Complete Delivery"
+  bounded_context: "Delivery"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary: >
+    Implemented the CompleteDeliveryFunction as an HTTP POST endpoint. The aggregate's
+    Complete() method validates PickedUp status and driver match, transitions to Delivered,
+    calculates totalDeliveryMinutes from the readyAt timestamp to deliveredAt, sets the
+    slaBreached flag based on the 45-minute threshold (DLV-R03), and raises a
+    DeliveryCompleted domain event with all SLA details.
+
+  files_created:
+    - "src/Delivery/Domain/Commands/CompleteDeliveryCommand.cs"
+    - "src/Delivery/Domain/Commands/CompleteDeliveryCommandHandler.cs"
+    - "src/Delivery/Functions/CompleteDeliveryFunction.cs"
+    - "src/Delivery/Domain/Events/DeliveryCompleted.cs"
+    - "tests/Delivery.Tests/Unit/DLV005Tests.cs"
+
+  files_modified: []
+
+  acceptance_criteria_checklist:
+    - criterion: "Delivery status transitions from PickedUp to Delivered"
+      met: true
+      evidence: "Complete() sets Status = DeliveryStatus.Delivered"
+    - criterion: "deliveredAt timestamp recorded"
+      met: true
+      evidence: "DeliveredAt = DateTimeOffset.UtcNow in Complete()"
+    - criterion: "totalDeliveryMinutes calculated from readyAt to deliveredAt"
+      met: true
+      evidence: "TotalDeliveryMinutes = (int)(DeliveredAt - ReadyAt).TotalMinutes"
+    - criterion: "slaBreached flag set correctly"
+      met: true
+      evidence: "SlaBreached = TotalDeliveryMinutes > GeoCalculations.SlaThresholdMinutes"
+    - criterion: "DeliveryCompleted domain event raised"
+      met: true
+      evidence: "AddDomainEvent(new DeliveryCompleted{...}) with all SLA fields"
+    - criterion: "HTTP 200 returned with delivery result"
+      met: true
+      evidence: "Function returns CompleteDeliveryResult with SLA details"
+
+  error_conditions_checklist:
+    - condition: "Delivery not found"
+      handled: true
+      evidence: "DeliveryNotFoundException -> HTTP 404"
+    - condition: "Delivery not in PickedUp status"
+      handled: true
+      evidence: "InvalidDeliveryStateException with DELIVERY_NOT_PICKED_UP -> HTTP 409"
+    - condition: "Driver ID does not match assigned driver"
+      handled: true
+      evidence: "WrongDriverException with DELIVERY_WRONG_DRIVER -> HTTP 403"
+
+  business_rules_enforced:
+    - rule_id: "DLV-R03"
+      description: "45-minute total delivery time SLA"
+      implementation: "SlaBreached computed from readyAt vs deliveredAt; included in DeliveryCompleted event"
+    - rule_id: "DLV-R05"
+      description: "Delivery can only be completed from PickedUp status"
+      implementation: "Status check in Complete() method"
+
+  test_coverage:
+    total_tests: 9
+    passing_tests: 9
+    test_categories:
+      - category: "Aggregate state transitions"
+        count: 5
+      - category: "SLA calculation"
+        count: 2
+      - category: "Handler orchestration"
+        count: 2
+
+  confidence_score: 97
+  notes: "SLA calculation tested with both within-SLA and exceeding-SLA scenarios. DeliveryCompleted event payload verified."

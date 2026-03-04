@@ -1,0 +1,44 @@
+ac_node:
+  id: "ORD-008"
+  bounded_context: "Orders"
+  aggregate_root: "Order"
+  behaviour_name: "Handle DriverAssigned event"
+  trigger: "ServiceBus topic: delivery.driver-assigned, subscription: orders-context"
+  azure_function: "HandleDriverAssignedFunction"
+  given:
+    - "An order exists with the specified orderId in the Cosmos DB orders container"
+    - "The order has status ReadyForPickup"
+  when:
+    - "A DriverAssigned event is received from the Delivery context on topic delivery.driver-assigned"
+  then:
+    - "The order status transitions from ReadyForPickup to InDelivery"
+    - "The inDeliveryAt timestamp is recorded on the order"
+    - "The updated order is persisted to Cosmos DB orders container"
+  error_conditions:
+    - condition: "The order status transition is invalid (e.g. order is not in ReadyForPickup status)"
+      expected: "A warning is logged and the event is discarded without throwing an exception"
+      error_code: "ORDER_INVALID_TRANSITION"
+  data_contracts:
+    request_schema: |
+      {
+        "eventType": "DriverAssigned",
+        "eventId": "Guid",
+        "occurredAt": "DateTimeOffset",
+        "sourceContext": "Delivery",
+        "payload": {
+          "deliveryId": "Guid",
+          "orderId": "Guid",
+          "driverId": "Guid",
+          "estimatedArrivalMinutes": "int",
+          "assignedAt": "DateTimeOffset"
+        }
+      }
+    response_schema: ""
+    domain_events: []
+  dependencies:
+    - context: "Delivery"
+      type: "async-upstream"
+      description: "Consumes DriverAssigned event from Delivery context via Service Bus topic delivery.driver-assigned"
+  estimated_complexity: 2
+  story_type: "event-handler"
+  notes: "Event handler must be idempotent using eventId to detect duplicates. Invalid transitions are logged as warnings and discarded to prevent poison message scenarios on Service Bus. No domain events are raised by this handler."

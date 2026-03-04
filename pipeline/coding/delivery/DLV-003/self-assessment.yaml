@@ -1,0 +1,62 @@
+self_assessment:
+  story_id: "DLV-003"
+  behaviour_name: "Update Driver Location"
+  bounded_context: "Delivery"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary: >
+    Implemented the UpdateDriverLocationFunction as an HTTP PUT endpoint that accepts
+    driver location pings. The aggregate's UpdateDriverLocation() method validates that
+    the delivery is active (DriverAssigned or PickedUp), the requesting driver matches
+    the assigned driver, then updates the DriverLocation value object and recalculates
+    the EstimatedArrival based on straight-line distance to the dropoff address.
+    No domain events are raised for location updates.
+
+  files_created:
+    - "src/Delivery/Domain/Commands/UpdateDriverLocationCommand.cs"
+    - "src/Delivery/Domain/Commands/UpdateDriverLocationCommandHandler.cs"
+    - "src/Delivery/Functions/UpdateDriverLocationFunction.cs"
+    - "tests/Delivery.Tests/Unit/DLV003Tests.cs"
+
+  files_modified: []
+
+  acceptance_criteria_checklist:
+    - criterion: "DriverLocation updated with new latitude, longitude, and timestamp"
+      met: true
+      evidence: "New DriverLocation record created in UpdateDriverLocation() method"
+    - criterion: "EstimatedArrival recalculated based on new location to dropoff"
+      met: true
+      evidence: "EstimateTravelMinutes called with driver location and dropoff coordinates"
+    - criterion: "HTTP 200 returned with updated ETA"
+      met: true
+      evidence: "Function returns UpdateDriverLocationResult with ETA details"
+
+  error_conditions_checklist:
+    - condition: "Delivery not found"
+      handled: true
+      evidence: "DeliveryNotFoundException -> HTTP 404"
+    - condition: "Delivery not in DriverAssigned or PickedUp status"
+      handled: true
+      evidence: "InvalidDeliveryStateException with DELIVERY_NOT_ACTIVE -> HTTP 409"
+    - condition: "Driver ID does not match assigned driver"
+      handled: true
+      evidence: "WrongDriverException with DELIVERY_WRONG_DRIVER -> HTTP 403"
+
+  business_rules_enforced:
+    - rule_id: "DLV-R04"
+      description: "Location updates include latitude, longitude, timestamp"
+      implementation: "DriverLocation value object stores all three fields"
+
+  test_coverage:
+    total_tests: 7
+    passing_tests: 7
+    test_categories:
+      - category: "Aggregate location update"
+        count: 3
+      - category: "Error conditions"
+        count: 2
+      - category: "Handler orchestration"
+        count: 2
+
+  confidence_score: 95
+  notes: "Straightforward state update. Location pings accepted in both DriverAssigned and PickedUp status as per AC."

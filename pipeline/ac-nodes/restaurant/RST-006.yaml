@@ -1,0 +1,32 @@
+ac_node:
+  id: "RST-006"
+  bounded_context: "Restaurant"
+  aggregate_root: "RestaurantOrder"
+  behaviour_name: "Mark Preparing"
+  trigger: "HTTP PUT /restaurants/{restaurantId}/orders/{orderId}/status with status=Preparing"
+  azure_function: "UpdatePreparationStatusFunction"
+  given:
+    - "A RestaurantOrder exists in the restaurant-orders container with the given orderId and restaurantId"
+    - "The RestaurantOrder is in Accepted status"
+  when:
+    - "Restaurant staff sends a PUT request to /restaurants/{restaurantId}/orders/{orderId}/status with status 'Preparing'"
+  then:
+    - "The RestaurantOrder status transitions from Accepted to Preparing"
+    - "The status update timestamp is recorded on the RestaurantOrder"
+    - "HTTP 200 is returned with the updated RestaurantOrder"
+    - "No domain event is raised for this transition (only ReadyForPickup raises an event)"
+  error_conditions:
+    - condition: "No RestaurantOrder found with the given orderId for the given restaurantId"
+      expected: "HTTP 404 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+    - condition: "RestaurantOrder exists but is not in Accepted status (invalid transition per state machine: Accepted -> Preparing)"
+      expected: "HTTP 409 returned with error body"
+      error_code: "RESTAURANT_INVALID_TRANSITION"
+  data_contracts:
+    request_schema: "PUT /restaurants/{restaurantId}/orders/{orderId}/status — { status: 'Preparing' }"
+    response_schema: "HTTP 200: { orderId: Guid, restaurantId: Guid, status: 'Preparing', updatedAt: DateTimeOffset }"
+    domain_events: []
+  dependencies: []
+  estimated_complexity: 2
+  story_type: "backend"
+  notes: "Shares the UpdatePreparationStatusFunction Azure Function with RST-007 (Mark Ready for Pickup). The function inspects the requested status value to determine which transition to apply. This transition (Accepted -> Preparing) does not raise a domain event. The only valid preceding status is Accepted."

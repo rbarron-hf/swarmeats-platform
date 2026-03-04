@@ -1,0 +1,92 @@
+story:
+  id: "RST-008-STORY"
+  ac_node_ref: "RST-008"
+  bounded_context: "Restaurant"
+  epic: "Restaurant Order Management"
+  feature: "Order Cancellation Handling"
+  title: "Handle OrderCancelled event to cancel pending restaurant orders"
+  user_story: >
+    As the system, I need to consume the OrderCancelled event from the Orders
+    context so that pending restaurant orders are cancelled before staff
+    begins preparation, and in-progress orders are flagged with a warning.
+  acceptance_criteria:
+    - id: "RST-008-AC-01"
+      given: >
+        An OrderCancelled event is received from the Orders context on the
+        orders.cancelled topic and the event payload contains orderId,
+        orderNumber, restaurantId, and cancelledAt
+      when: >
+        The HandleOrderCancelledFunction processes the OrderCancelled event
+      then: >
+        The handler looks up the RestaurantOrder by orderId and restaurantId
+        in the restaurant-orders container
+    - id: "RST-008-AC-02"
+      given: >
+        A RestaurantOrder exists and is in Pending status
+      when: >
+        The HandleOrderCancelledFunction processes the OrderCancelled event
+      then: >
+        The order is marked as Cancelled and is not presented to staff on the
+        dashboard
+    - id: "RST-008-AC-03"
+      given: >
+        A RestaurantOrder exists and is in Accepted, Preparing, or
+        ReadyForPickup status
+      when: >
+        The HandleOrderCancelledFunction processes the OrderCancelled event
+      then: >
+        A warning is logged indicating the food is already being prepared,
+        and no status change is made
+    - id: "RST-008-AC-04"
+      given: >
+        No RestaurantOrder is found for the given orderId (event arrived
+        before OrderPlaced was processed)
+      when: >
+        The HandleOrderCancelledFunction processes the OrderCancelled event
+      then: >
+        The event is logged and discarded
+    - id: "RST-008-AC-05"
+      given: >
+        Any event is received
+      when: >
+        The HandleOrderCancelledFunction processes the OrderCancelled event
+      then: >
+        The handler must be idempotent using eventId to prevent duplicate
+        processing
+    - id: "RST-008-AC-06"
+      given: >
+        Any event is received
+      when: >
+        The HandleOrderCancelledFunction processes the OrderCancelled event
+      then: >
+        No domain events are raised by this handler
+  error_scenarios:
+    - id: "RST-008-ERR-01"
+      condition: "Duplicate event (same eventId already processed)"
+      expected_behaviour: "Event silently discarded; no state change"
+      error_code: "DUPLICATE_EVENT"
+    - id: "RST-008-ERR-02"
+      condition: "RestaurantOrder is in Accepted or later status when cancellation arrives"
+      expected_behaviour: "Warning logged; no state change; event not retried"
+      error_code: "CANCELLATION_TOO_LATE"
+  story_dependencies:
+    - story_id: "ORD-002-STORY"
+      reason: "Consumes the OrderCancelled event produced when a customer cancels an order"
+    - story_id: "RST-003-STORY"
+      reason: "The RestaurantOrder must have been created by the OrderPlaced handler before it can be cancelled"
+  story_type: "event-handler"
+  estimated_points: 2
+  ddd_pattern: "domain_event_handler"
+  ddd_notes: >
+    Consumes OrderCancelled integration event from Orders context. Simpler
+    than RST-003 because it only reads and conditionally updates one document
+    without raising events. Cancellation after acceptance is logged but does
+    not change state. Must handle race condition where cancellation arrives
+    before OrderPlaced processing. Idempotent using eventId.
+  azure_function: "HandleOrderCancelledFunction"
+  trigger_type: "ServiceBus Topic"
+  traceability:
+    fdd_sections:
+      - "4.7 Domain Events Consumed - OrderCancelled"
+    ac_node_ids:
+      - "RST-008"

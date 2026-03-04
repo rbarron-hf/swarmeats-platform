@@ -1,0 +1,45 @@
+ac_node:
+  id: "ORD-009"
+  bounded_context: "Orders"
+  aggregate_root: "Order"
+  behaviour_name: "Handle DeliveryCompleted event"
+  trigger: "ServiceBus topic: delivery.completed, subscription: orders-context"
+  azure_function: "HandleDeliveryCompletedFunction"
+  given:
+    - "An order exists with the specified orderId in the Cosmos DB orders container"
+    - "The order has status InDelivery"
+  when:
+    - "A DeliveryCompleted event is received from the Delivery context on topic delivery.completed"
+  then:
+    - "The order status transitions from InDelivery to Delivered"
+    - "The deliveredAt timestamp is recorded on the order"
+    - "The updated order is persisted to Cosmos DB orders container"
+  error_conditions:
+    - condition: "The order status transition is invalid (e.g. order is not in InDelivery status)"
+      expected: "A warning is logged and the event is discarded without throwing an exception"
+      error_code: "ORDER_INVALID_TRANSITION"
+  data_contracts:
+    request_schema: |
+      {
+        "eventType": "DeliveryCompleted",
+        "eventId": "Guid",
+        "occurredAt": "DateTimeOffset",
+        "sourceContext": "Delivery",
+        "payload": {
+          "deliveryId": "Guid",
+          "orderId": "Guid",
+          "driverId": "Guid",
+          "deliveredAt": "DateTimeOffset",
+          "totalDeliveryMinutes": "int",
+          "slaBreached": "bool"
+        }
+      }
+    response_schema: ""
+    domain_events: []
+  dependencies:
+    - context: "Delivery"
+      type: "async-upstream"
+      description: "Consumes DeliveryCompleted event from Delivery context via Service Bus topic delivery.completed"
+  estimated_complexity: 2
+  story_type: "event-handler"
+  notes: "Event handler must be idempotent using eventId to detect duplicates. This is the terminal happy-path transition for an order. Invalid transitions are logged as warnings and discarded to prevent poison message scenarios on Service Bus. No domain events are raised by this handler."

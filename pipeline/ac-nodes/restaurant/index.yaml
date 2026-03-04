@@ -1,0 +1,146 @@
+ac_node_index:
+  bounded_context: "Restaurant"
+  generated_at: "2026-03-03T00:00:00Z"
+  total_nodes: 9
+  total_estimated_complexity: 24
+  aggregates:
+    - name: "Menu"
+      node_count: 1
+      nodes:
+        - "RST-001"
+    - name: "RestaurantOrder"
+      node_count: 8
+      nodes:
+        - "RST-002"
+        - "RST-003"
+        - "RST-004"
+        - "RST-005"
+        - "RST-006"
+        - "RST-007"
+        - "RST-008"
+        - "RST-009"
+  nodes:
+    - id: "RST-001"
+      behaviour_name: "Get Menu"
+      azure_function: "GetMenuFunction"
+      trigger: "HTTP GET /restaurants/{restaurantId}/menu"
+      aggregate_root: "Menu"
+      story_type: "backend"
+      estimated_complexity: 1
+
+    - id: "RST-002"
+      behaviour_name: "Get Active Orders"
+      azure_function: "GetActiveOrdersFunction"
+      trigger: "HTTP GET /restaurants/{restaurantId}/orders?status={status}"
+      aggregate_root: "RestaurantOrder"
+      story_type: "backend"
+      estimated_complexity: 2
+
+    - id: "RST-003"
+      behaviour_name: "Process Incoming Order"
+      azure_function: "HandleOrderPlacedFunction"
+      trigger: "ServiceBus topic: orders.placed"
+      aggregate_root: "RestaurantOrder"
+      story_type: "integration"
+      estimated_complexity: 5
+
+    - id: "RST-004"
+      behaviour_name: "Accept Order"
+      azure_function: "AcceptOrderFunction"
+      trigger: "HTTP POST /restaurants/{restaurantId}/orders/{orderId}/accept"
+      aggregate_root: "RestaurantOrder"
+      story_type: "backend"
+      estimated_complexity: 3
+
+    - id: "RST-005"
+      behaviour_name: "Reject Order"
+      azure_function: "RejectOrderFunction"
+      trigger: "HTTP POST /restaurants/{restaurantId}/orders/{orderId}/reject"
+      aggregate_root: "RestaurantOrder"
+      story_type: "backend"
+      estimated_complexity: 3
+
+    - id: "RST-006"
+      behaviour_name: "Mark Preparing"
+      azure_function: "UpdatePreparationStatusFunction"
+      trigger: "HTTP PUT /restaurants/{restaurantId}/orders/{orderId}/status (status=Preparing)"
+      aggregate_root: "RestaurantOrder"
+      story_type: "backend"
+      estimated_complexity: 2
+
+    - id: "RST-007"
+      behaviour_name: "Mark Ready for Pickup"
+      azure_function: "UpdatePreparationStatusFunction"
+      trigger: "HTTP PUT /restaurants/{restaurantId}/orders/{orderId}/status (status=ReadyForPickup)"
+      aggregate_root: "RestaurantOrder"
+      story_type: "backend"
+      estimated_complexity: 3
+
+    - id: "RST-008"
+      behaviour_name: "Handle Order Cancelled"
+      azure_function: "HandleOrderCancelledFunction"
+      trigger: "ServiceBus topic: orders.cancelled"
+      aggregate_root: "RestaurantOrder"
+      story_type: "integration"
+      estimated_complexity: 2
+
+    - id: "RST-009"
+      behaviour_name: "Active Order Dashboard Projection"
+      azure_function: "ActiveOrderDashboardFunction"
+      trigger: "Cosmos DB Change Feed on restaurant-orders"
+      aggregate_root: "RestaurantOrder"
+      story_type: "infrastructure"
+      estimated_complexity: 3
+
+  story_type_summary:
+    backend: 6
+    integration: 2
+    infrastructure: 1
+
+  dependency_summary:
+    - context: "Orders"
+      type: "event_subscription"
+      nodes:
+        - "RST-003"
+        - "RST-008"
+
+  domain_events_raised:
+    - event_name: "OrderAccepted"
+      topic: "restaurant.order-accepted"
+      raised_by: "RST-004"
+    - event_name: "OrderRejected"
+      topic: "restaurant.order-rejected"
+      raised_by:
+        - "RST-003"
+        - "RST-005"
+    - event_name: "OrderReadyForPickup"
+      topic: "restaurant.order-ready"
+      raised_by: "RST-007"
+
+  domain_events_consumed:
+    - event_name: "OrderPlaced"
+      topic: "orders.placed"
+      consumed_by: "RST-003"
+    - event_name: "OrderCancelled"
+      topic: "orders.cancelled"
+      consumed_by: "RST-008"
+
+  business_rules_coverage:
+    - rule_id: "RST-R01"
+      description: "Restaurant must be within operating hours"
+      enforced_in: "RST-003"
+    - rule_id: "RST-R02"
+      description: "All line items must reference available menu items"
+      enforced_in: "RST-003"
+    - rule_id: "RST-R03"
+      description: "Estimated prep time must be 5-90 minutes"
+      enforced_in: "RST-004"
+    - rule_id: "RST-R04"
+      description: "Rejection reason code must be from allowed set"
+      enforced_in: "RST-005"
+    - rule_id: "RST-R05"
+      description: "Orders can only be rejected from Pending status"
+      enforced_in: "RST-005"
+    - rule_id: "RST-R06"
+      description: "Menu item prices > 0 and prep time >= 1 minute"
+      enforced_in: "Menu aggregate (not covered by these AC nodes — UpdateMenuItem command)"

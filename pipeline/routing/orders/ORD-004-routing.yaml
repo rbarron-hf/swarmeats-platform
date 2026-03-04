@@ -1,0 +1,17 @@
+routing_decision:
+  story_id: "ORD-004"
+  bounded_context: "Orders"
+  scores:
+    ac_node_count: 0        # 1 AC node -> 0
+    file_surface_area: 0    # Query handler, response DTO, pagination logic, tests -> ~5 files -> 0
+    integration_boundaries: 0  # No external dependencies -> 0
+    shared_aggregate: 0     # Order aggregate owned solely by Orders context -> 0
+    error_condition_density: 0  # 1 error condition (ORDER_INVALID_CUSTOMER) -> 0
+    domain_logic_depth: 0   # Pagination via Cosmos DB continuation tokens, query plumbing -> 0
+    estimated_complexity: 0  # Complexity 2 -> 0
+  total_score: 0
+  routing: "single_agent"
+  override_applied: null
+  rationale: "GetOrdersByCustomer is a paginated read query using Cosmos DB continuation tokens. No state changes, no events, and only basic input validation. Straightforward single-agent implementation."
+  recommended_subagent_tasks: []
+  recommended_swarm_workers: []

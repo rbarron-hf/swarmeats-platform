@@ -1,0 +1,17 @@
+routing_decision:
+  story_id: "RST-004"
+  bounded_context: "Restaurant"
+  scores:
+    ac_node_count: 0        # 1 AC node -> 0
+    file_surface_area: 1    # Command handler, state transition logic, OrderAccepted event, outbox, validator, DTOs, tests -> ~8 files -> 1
+    integration_boundaries: 0  # No external dependencies; event is published downstream -> 0
+    shared_aggregate: 0     # RestaurantOrder owned by Restaurant context -> 0
+    error_condition_density: 1  # 3 error conditions (RESTAURANT_ORDER_NOT_FOUND, RESTAURANT_ORDER_NOT_PENDING, RESTAURANT_INVALID_PREP_TIME) -> 1
+    domain_logic_depth: 1   # Prep time range validation (5-90 min), state machine Pending -> Accepted -> 1
+    estimated_complexity: 1  # Complexity 3 -> 1
+  total_score: 4
+  routing: "single_agent"
+  override_applied: null
+  rationale: "AcceptOrder is a moderate command with prep time validation (5-90 minutes), a single state transition (Pending -> Accepted), and OrderAccepted event publishing via outbox. Three error conditions but all straightforward. Comfortably within single agent scope."
+  recommended_subagent_tasks: []
+  recommended_swarm_workers: []

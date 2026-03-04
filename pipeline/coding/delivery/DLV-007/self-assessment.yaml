@@ -1,0 +1,51 @@
+self_assessment:
+  story_id: "DLV-007"
+  behaviour_name: "Get Estimated Arrival"
+  bounded_context: "Delivery"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary: >
+    Implemented the GetEstimatedArrivalFunction as an HTTP GET endpoint with
+    GetEstimatedArrivalQuery and GetEstimatedArrivalQueryHandler. The handler loads
+    the delivery, validates that a driver is assigned (not in AwaitingDriver status),
+    and returns the pre-calculated estimated arrival time and last location update
+    timestamp.
+
+  files_created:
+    - "src/Delivery/Domain/Queries/GetEstimatedArrivalQuery.cs"
+    - "src/Delivery/Domain/Queries/GetEstimatedArrivalQueryHandler.cs"
+    - "src/Delivery/Functions/GetEstimatedArrivalFunction.cs"
+    - "tests/Delivery.Tests/Unit/DLV007Tests.cs"
+
+  files_modified: []
+
+  acceptance_criteria_checklist:
+    - criterion: "Estimated arrival time returned based on driver's last known location"
+      met: true
+      evidence: "Response includes EstimatedArrivalTime and EstimatedMinutes from aggregate"
+    - criterion: "Last location update timestamp included"
+      met: true
+      evidence: "LastLocationUpdate from DriverLocation.UpdatedAt"
+    - criterion: "HTTP 200 returned"
+      met: true
+      evidence: "Function returns HttpStatusCode.OK with GetEstimatedArrivalResponse"
+
+  error_conditions_checklist:
+    - condition: "Delivery not found"
+      handled: true
+      evidence: "DeliveryNotFoundException -> HTTP 404 with DELIVERY_NOT_FOUND"
+    - condition: "No driver assigned yet"
+      handled: true
+      evidence: "InvalidDeliveryStateException with DELIVERY_NO_DRIVER -> HTTP 409"
+
+  business_rules_enforced: []
+
+  test_coverage:
+    total_tests: 3
+    passing_tests: 3
+    test_categories:
+      - category: "Query handler"
+        count: 3
+
+  confidence_score: 98
+  notes: "Simple read query (complexity 1). Pre-calculated ETA returned from aggregate state."

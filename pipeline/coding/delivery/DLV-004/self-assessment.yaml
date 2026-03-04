@@ -1,0 +1,56 @@
+self_assessment:
+  story_id: "DLV-004"
+  behaviour_name: "Confirm Pickup"
+  bounded_context: "Delivery"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary: >
+    Implemented the ConfirmPickupFunction as an HTTP POST endpoint. The aggregate's
+    ConfirmPickup() method validates that the delivery is in DriverAssigned status and
+    the requesting driver matches the assigned driver. On success, it transitions the
+    status to PickedUp and records the pickup timestamp. No domain events are raised
+    on pickup confirmation.
+
+  files_created:
+    - "src/Delivery/Domain/Commands/ConfirmPickupCommand.cs"
+    - "src/Delivery/Domain/Commands/ConfirmPickupCommandHandler.cs"
+    - "src/Delivery/Functions/ConfirmPickupFunction.cs"
+    - "tests/Delivery.Tests/Unit/DLV004Tests.cs"
+
+  files_modified: []
+
+  acceptance_criteria_checklist:
+    - criterion: "Delivery status transitions from DriverAssigned to PickedUp"
+      met: true
+      evidence: "ConfirmPickup() sets Status = DeliveryStatus.PickedUp"
+    - criterion: "Pickup timestamp recorded"
+      met: true
+      evidence: "PickedUpAt = DateTimeOffset.UtcNow set in ConfirmPickup()"
+    - criterion: "HTTP 200 returned with updated delivery"
+      met: true
+      evidence: "Function returns ConfirmPickupResult with status = PickedUp"
+
+  error_conditions_checklist:
+    - condition: "Delivery not found"
+      handled: true
+      evidence: "DeliveryNotFoundException -> HTTP 404"
+    - condition: "Delivery not in DriverAssigned status"
+      handled: true
+      evidence: "InvalidDeliveryStateException with DELIVERY_INVALID_TRANSITION -> HTTP 409"
+    - condition: "Driver ID does not match assigned driver"
+      handled: true
+      evidence: "WrongDriverException with DELIVERY_WRONG_DRIVER -> HTTP 403"
+
+  business_rules_enforced: []
+
+  test_coverage:
+    total_tests: 5
+    passing_tests: 5
+    test_categories:
+      - category: "Aggregate state transitions"
+        count: 3
+      - category: "Handler orchestration"
+        count: 2
+
+  confidence_score: 98
+  notes: "Simple state transition. Low complexity (2 points). Clean implementation."

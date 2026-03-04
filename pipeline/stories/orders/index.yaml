@@ -1,0 +1,211 @@
+story_index:
+  bounded_context: "Orders"
+  generated_at: "2026-03-03T00:00:00Z"
+  total_stories: 9
+  total_estimated_points: 21
+
+  stories:
+    - id: "ORD-001-STORY"
+      ac_node_ref: "ORD-001"
+      title: "Place a new food order with validated line items"
+      story_type: "command"
+      ddd_pattern: "aggregate_command"
+      estimated_points: 5
+      azure_function: "PlaceOrderFunction"
+      trigger_type: "HTTP POST"
+
+    - id: "ORD-002-STORY"
+      ac_node_ref: "ORD-002"
+      title: "Cancel an order that has not yet been accepted"
+      story_type: "command"
+      ddd_pattern: "aggregate_command"
+      estimated_points: 3
+      azure_function: "CancelOrderFunction"
+      trigger_type: "HTTP POST"
+
+    - id: "ORD-003-STORY"
+      ac_node_ref: "ORD-003"
+      title: "Retrieve full order details by order ID"
+      story_type: "query"
+      ddd_pattern: "query_handler"
+      estimated_points: 1
+      azure_function: "GetOrderFunction"
+      trigger_type: "HTTP GET"
+
+    - id: "ORD-004-STORY"
+      ac_node_ref: "ORD-004"
+      title: "Retrieve paginated order history for a customer"
+      story_type: "query"
+      ddd_pattern: "query_handler"
+      estimated_points: 2
+      azure_function: "GetOrdersByCustomerFunction"
+      trigger_type: "HTTP GET"
+
+    - id: "ORD-005-STORY"
+      ac_node_ref: "ORD-005"
+      title: "Handle OrderAccepted event to progress order to Accepted"
+      story_type: "event-handler"
+      ddd_pattern: "domain_event_handler"
+      estimated_points: 2
+      azure_function: "HandleOrderAcceptedFunction"
+      trigger_type: "ServiceBus Topic"
+
+    - id: "ORD-006-STORY"
+      ac_node_ref: "ORD-006"
+      title: "Handle OrderRejected event to progress order to Rejected"
+      story_type: "event-handler"
+      ddd_pattern: "domain_event_handler"
+      estimated_points: 2
+      azure_function: "HandleOrderRejectedFunction"
+      trigger_type: "ServiceBus Topic"
+
+    - id: "ORD-007-STORY"
+      ac_node_ref: "ORD-007"
+      title: "Handle OrderReadyForPickup event to progress order to ReadyForPickup"
+      story_type: "event-handler"
+      ddd_pattern: "domain_event_handler"
+      estimated_points: 2
+      azure_function: "HandleOrderReadyFunction"
+      trigger_type: "ServiceBus Topic"
+
+    - id: "ORD-008-STORY"
+      ac_node_ref: "ORD-008"
+      title: "Handle DriverAssigned event to progress order to InDelivery"
+      story_type: "event-handler"
+      ddd_pattern: "domain_event_handler"
+      estimated_points: 2
+      azure_function: "HandleDriverAssignedFunction"
+      trigger_type: "ServiceBus Topic"
+
+    - id: "ORD-009-STORY"
+      ac_node_ref: "ORD-009"
+      title: "Handle DeliveryCompleted event to progress order to Delivered"
+      story_type: "event-handler"
+      ddd_pattern: "domain_event_handler"
+      estimated_points: 2
+      azure_function: "HandleDeliveryCompletedFunction"
+      trigger_type: "ServiceBus Topic"
+
+  dependency_graph:
+    # ORD-001 has no dependencies — it is the root of the order lifecycle
+    - story_id: "ORD-001-STORY"
+      depends_on: []
+
+    # ORD-002 depends on ORD-001 (order must be in Placed status)
+    - story_id: "ORD-002-STORY"
+      depends_on:
+        - story_id: "ORD-001-STORY"
+          type: "intra-context"
+          reason: "An order must first be placed (status Placed) before it can be cancelled"
+
+    # ORD-003 depends on ORD-001 (order must exist)
+    - story_id: "ORD-003-STORY"
+      depends_on:
+        - story_id: "ORD-001-STORY"
+          type: "intra-context"
+          reason: "An order must exist before it can be retrieved"
+
+    # ORD-004 depends on ORD-001 (orders must exist)
+    - story_id: "ORD-004-STORY"
+      depends_on:
+        - story_id: "ORD-001-STORY"
+          type: "intra-context"
+          reason: "Orders must exist before they can be listed for a customer"
+
+    # ORD-005 depends on ORD-001 (order Placed) and RST-004 (produces OrderAccepted)
+    - story_id: "ORD-005-STORY"
+      depends_on:
+        - story_id: "ORD-001-STORY"
+          type: "intra-context"
+          reason: "An order must be in Placed status before it can be accepted"
+        - story_id: "RST-004-STORY"
+          type: "cross-context"
+          reason: "The OrderAccepted event is produced by the Restaurant context AcceptOrder command"
+
+    # ORD-006 depends on ORD-001 (order Placed) and RST-005 (produces OrderRejected)
+    - story_id: "ORD-006-STORY"
+      depends_on:
+        - story_id: "ORD-001-STORY"
+          type: "intra-context"
+          reason: "An order must be in Placed status before it can be rejected"
+        - story_id: "RST-005-STORY"
+          type: "cross-context"
+          reason: "The OrderRejected event is produced by the Restaurant context RejectOrder command"
+
+    # ORD-007 depends on ORD-005 (order Accepted) and RST-007 (produces OrderReadyForPickup)
+    - story_id: "ORD-007-STORY"
+      depends_on:
+        - story_id: "ORD-005-STORY"
+          type: "intra-context"
+          reason: "The order must be in Accepted (or Preparing) status"
+        - story_id: "RST-007-STORY"
+          type: "cross-context"
+          reason: "The OrderReadyForPickup event is produced by the Restaurant context MarkReadyForPickup command"
+
+    # ORD-008 depends on ORD-007 (order ReadyForPickup) and DLV-002 (produces DriverAssigned)
+    - story_id: "ORD-008-STORY"
+      depends_on:
+        - story_id: "ORD-007-STORY"
+          type: "intra-context"
+          reason: "The order must be in ReadyForPickup status"
+        - story_id: "DLV-002-STORY"
+          type: "cross-context"
+          reason: "The DriverAssigned event is produced by the Delivery context AssignDriver command"
+
+    # ORD-009 depends on ORD-008 (order InDelivery) and DLV-005 (produces DeliveryCompleted)
+    - story_id: "ORD-009-STORY"
+      depends_on:
+        - story_id: "ORD-008-STORY"
+          type: "intra-context"
+          reason: "The order must be in InDelivery status"
+        - story_id: "DLV-005-STORY"
+          type: "cross-context"
+          reason: "The DeliveryCompleted event is produced by the Delivery context CompleteDelivery command"
+
+  event_flow:
+    produces:
+      - event: "OrderPlaced"
+        topic: "orders.placed"
+        produced_by: "ORD-001-STORY"
+        consumed_by:
+          - context: "Restaurant"
+            story: "RST-003-STORY"
+      - event: "OrderCancelled"
+        topic: "orders.cancelled"
+        produced_by: "ORD-002-STORY"
+        consumed_by:
+          - context: "Restaurant"
+            story: "RST-008-STORY"
+          - context: "Delivery"
+            story: "DLV-009-STORY"
+    consumes:
+      - event: "OrderAccepted"
+        topic: "restaurant.order-accepted"
+        consumed_by: "ORD-005-STORY"
+        produced_by:
+          context: "Restaurant"
+          story: "RST-004-STORY"
+      - event: "OrderRejected"
+        topic: "restaurant.order-rejected"
+        consumed_by: "ORD-006-STORY"
+        produced_by:
+          context: "Restaurant"
+          story: "RST-005-STORY"
+      - event: "OrderReadyForPickup"
+        topic: "restaurant.order-ready"
+        consumed_by: "ORD-007-STORY"
+        produced_by:
+          context: "Restaurant"
+          story: "RST-007-STORY"
+      - event: "DriverAssigned"
+        topic: "delivery.driver-assigned"
+        consumed_by: "ORD-008-STORY"
+        produced_by:
+          context: "Delivery"
+          story: "DLV-002-STORY"
+      - event: "DeliveryCompleted"
+        topic: "delivery.completed"
+        consumed_by: "ORD-009-STORY"
+        produced_by:
+          context: "Delivery"
+          story: "DLV-005-STORY"

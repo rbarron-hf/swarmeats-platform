@@ -1,0 +1,64 @@
+story:
+  id: "ORD-005-STORY"
+  ac_node_ref: "ORD-005"
+  bounded_context: "Orders"
+  epic: "Order Lifecycle Management"
+  feature: "Order Status Progression"
+  title: "Handle OrderAccepted event to progress order to Accepted"
+  user_story: >
+    As the system, I need to consume the OrderAccepted event from the
+    Restaurant context so that the order status is updated to Accepted and the
+    customer can see the restaurant has confirmed their order.
+  acceptance_criteria:
+    - id: "ORD-005-AC-01"
+      given: >
+        An order exists with the specified orderId in the Cosmos DB orders
+        container and the order has status Placed
+      when: >
+        An OrderAccepted event is received from the Restaurant context on
+        topic restaurant.order-accepted
+      then: >
+        The order status transitions from Placed to Accepted
+    - id: "ORD-005-AC-02"
+      given: >
+        An order exists with the specified orderId and the order has status
+        Placed
+      when: >
+        An OrderAccepted event is received from the Restaurant context on
+        topic restaurant.order-accepted
+      then: >
+        The acceptedAt timestamp is recorded on the order
+    - id: "ORD-005-AC-03"
+      given: >
+        An order exists with the specified orderId and the order has status
+        Placed
+      when: >
+        An OrderAccepted event is received from the Restaurant context on
+        topic restaurant.order-accepted
+      then: >
+        The updated order is persisted to Cosmos DB orders container
+  error_scenarios:
+    - id: "ORD-005-ERR-01"
+      condition: "The order status transition is invalid (e.g. order already Cancelled or Rejected)"
+      expected_behaviour: "A warning is logged and the event is discarded without throwing an exception"
+      error_code: "ORDER_INVALID_TRANSITION"
+  story_dependencies:
+    - story_id: "ORD-001-STORY"
+      reason: "An order must be in Placed status before it can be accepted"
+    - story_id: "RST-004-STORY"
+      reason: "The OrderAccepted event is produced by the Restaurant context AcceptOrder command"
+  story_type: "event-handler"
+  estimated_points: 2
+  ddd_pattern: "domain_event_handler"
+  ddd_notes: >
+    Consumes OrderAccepted integration event from Restaurant context. Must be
+    idempotent using eventId to detect duplicates. Invalid transitions are
+    logged as warnings and discarded to prevent poison messages on Service Bus.
+    No domain events are raised.
+  azure_function: "HandleOrderAcceptedFunction"
+  trigger_type: "ServiceBus Topic"
+  traceability:
+    fdd_sections:
+      - "3.6 Domain Events Consumed - OrderAccepted"
+    ac_node_ids:
+      - "ORD-005"

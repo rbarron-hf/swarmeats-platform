@@ -1,0 +1,69 @@
+story:
+  id: "RST-002-STORY"
+  ac_node_ref: "RST-002"
+  bounded_context: "Restaurant"
+  epic: "Restaurant Order Management"
+  feature: "Order Dashboard"
+  title: "Retrieve active orders for the restaurant dashboard"
+  user_story: >
+    As restaurant staff, I want to view a filtered list of active orders by
+    status so that I can manage the kitchen workflow and prioritise preparation.
+  acceptance_criteria:
+    - id: "RST-002-AC-01"
+      given: >
+        A restaurant has orders in various statuses (Pending, Accepted,
+        Preparing, ReadyForPickup, Rejected) in the restaurant-orders
+        container
+      when: >
+        A GET request is received for /restaurants/{restaurantId}/orders with
+        an optional status query parameter
+      then: >
+        A filtered list of restaurant order summaries is returned with HTTP 200
+    - id: "RST-002-AC-02"
+      given: >
+        A restaurant has orders and a status parameter is provided
+      when: >
+        A GET request is received for /restaurants/{restaurantId}/orders with
+        a status query parameter
+      then: >
+        If status parameter is provided, only orders matching that status are
+        returned
+    - id: "RST-002-AC-03"
+      given: >
+        A restaurant has orders and no status parameter is provided
+      when: >
+        A GET request is received for /restaurants/{restaurantId}/orders
+        without a status query parameter
+      then: >
+        If status parameter is omitted, all active orders for the restaurant
+        are returned
+    - id: "RST-002-AC-04"
+      given: >
+        A restaurant has orders
+      when: >
+        A GET request is received for /restaurants/{restaurantId}/orders
+      then: >
+        Each summary includes orderId, orderNumber, status, lineItems, and
+        timestamps
+  error_scenarios:
+    - id: "RST-002-ERR-01"
+      condition: "The status query parameter is provided but is not a valid RestaurantOrderStatus value (Pending, Accepted, Preparing, ReadyForPickup, Rejected)"
+      expected_behaviour: "HTTP 400 returned with error body"
+      error_code: "RESTAURANT_INVALID_STATUS"
+  story_dependencies:
+    - story_id: "RST-003-STORY"
+      reason: "Restaurant orders must be created via incoming OrderPlaced events before they can be queried"
+  story_type: "query"
+  estimated_points: 2
+  ddd_pattern: "query_handler"
+  ddd_notes: >
+    Read-only query against the restaurant-orders Cosmos DB container
+    partitioned by /restaurantId. Supports optional status filtering. Used by
+    the restaurant dashboard. No domain events raised.
+  azure_function: "GetActiveOrdersFunction"
+  trigger_type: "HTTP GET"
+  traceability:
+    fdd_sections:
+      - "4.5 API Endpoints - GET /restaurants/{restaurantId}/orders"
+    ac_node_ids:
+      - "RST-002"

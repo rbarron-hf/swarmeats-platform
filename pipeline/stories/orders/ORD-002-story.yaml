@@ -1,0 +1,74 @@
+story:
+  id: "ORD-002-STORY"
+  ac_node_ref: "ORD-002"
+  bounded_context: "Orders"
+  epic: "Order Lifecycle Management"
+  feature: "Order Cancellation"
+  title: "Cancel an order that has not yet been accepted"
+  user_story: >
+    As a customer, I want to cancel my order while it is still in Placed status
+    so that I am not charged and the restaurant does not prepare food I no
+    longer want.
+  acceptance_criteria:
+    - id: "ORD-002-AC-01"
+      given: >
+        An order exists with the specified orderId and the order has status
+        Placed (before restaurant has accepted)
+      when: >
+        POST /orders/{orderId}/cancel is called
+      then: >
+        The order status transitions from Placed to Cancelled
+    - id: "ORD-002-AC-02"
+      given: >
+        An order exists with the specified orderId and the order has status
+        Placed
+      when: >
+        POST /orders/{orderId}/cancel is called
+      then: >
+        The updated order is persisted to Cosmos DB orders container
+    - id: "ORD-002-AC-03"
+      given: >
+        An order exists with the specified orderId and the order has status
+        Placed
+      when: >
+        POST /orders/{orderId}/cancel is called
+      then: >
+        An OrderCancelled domain event is published to Service Bus topic
+        orders.cancelled via the outbox pattern
+    - id: "ORD-002-AC-04"
+      given: >
+        An order exists with the specified orderId and the order has status
+        Placed
+      when: >
+        POST /orders/{orderId}/cancel is called
+      then: >
+        HTTP 200 is returned with the updated order showing status Cancelled
+  error_scenarios:
+    - id: "ORD-002-ERR-01"
+      condition: "Order with the specified orderId does not exist"
+      expected_behaviour: "HTTP 404 returned with error"
+      error_code: "ORDER_NOT_FOUND"
+    - id: "ORD-002-ERR-02"
+      condition: "Order status is not Placed (e.g. Accepted, Delivered, already Cancelled)"
+      expected_behaviour: "HTTP 409 returned with error"
+      error_code: "ORDER_CANNOT_CANCEL"
+  story_dependencies:
+    - story_id: "ORD-001-STORY"
+      reason: "An order must first be placed (status Placed) before it can be cancelled"
+  story_type: "command"
+  estimated_points: 3
+  ddd_pattern: "aggregate_command"
+  ddd_notes: >
+    Enforces business rule ORD-R05 (cancellation only from Placed status).
+    Transitions Order aggregate state from Placed to Cancelled and raises
+    OrderCancelled domain event via outbox pattern. The event is consumed by
+    both Restaurant and Delivery contexts.
+  azure_function: "CancelOrderFunction"
+  trigger_type: "HTTP POST"
+  traceability:
+    fdd_sections:
+      - "3.3 Business Rules (ORD-R05)"
+      - "3.4 API Endpoints - POST /orders/{orderId}/cancel"
+      - "3.5 Domain Events Raised - OrderCancelled"
+    ac_node_ids:
+      - "ORD-002"

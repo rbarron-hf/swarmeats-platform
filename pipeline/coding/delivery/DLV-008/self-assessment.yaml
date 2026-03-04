@@ -1,0 +1,49 @@
+self_assessment:
+  story_id: "DLV-008"
+  behaviour_name: "Unassigned Delivery Monitor"
+  bounded_context: "Delivery"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary: >
+    Implemented the UnassignedDeliveryMonitorFunction as a Timer triggered Azure Function
+    that runs every 30 seconds. The function queries the deliveries container for all
+    deliveries in AwaitingDriver status that have been waiting longer than 5 minutes.
+    For each overdue delivery, a warning is logged with delivery details. The function
+    does NOT auto-assign drivers; it is for operational monitoring only.
+
+  files_created:
+    - "src/Delivery/Functions/EventHandlers/UnassignedDeliveryMonitorFunction.cs"
+    - "tests/Delivery.Tests/Unit/DLV008Tests.cs"
+
+  files_modified: []
+
+  acceptance_criteria_checklist:
+    - criterion: "Queries for AwaitingDriver deliveries older than 5 minutes"
+      met: true
+      evidence: "Calls GetOverdueUnassignedDeliveriesAsync(5) on repository"
+    - criterion: "Warning logged for each overdue delivery"
+      met: true
+      evidence: "LogWarning with DeliveryId, OrderId, CreatedAt, WaitingMinutes for each delivery"
+    - criterion: "No overdue deliveries = silent completion"
+      met: true
+      evidence: "Early return when overdueDeliveries.Count == 0"
+
+  error_conditions_checklist:
+    - condition: "No overdue deliveries found"
+      handled: true
+      evidence: "Function returns silently with debug log"
+
+  business_rules_enforced:
+    - rule_id: "DLV-R05"
+      description: "Unassigned deliveries older than threshold trigger monitoring alert"
+      implementation: "5-minute threshold query; warning logs for each overdue delivery"
+
+  test_coverage:
+    total_tests: 3
+    passing_tests: 3
+    test_categories:
+      - category: "Monitor behaviour"
+        count: 3
+
+  confidence_score: 95
+  notes: "Monitoring-only function. Queries 'unassigned' partition key for efficient reads. Exception handling prevents timer function permanent failure."

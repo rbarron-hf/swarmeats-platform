@@ -1,0 +1,53 @@
+ac_node:
+  id: "DLV-005"
+  bounded_context: "Delivery"
+  aggregate_root: "Delivery"
+  behaviour_name: "Complete Delivery"
+  trigger: "HTTP POST /deliveries/{deliveryId}/complete"
+  azure_function: "CompleteDeliveryFunction"
+  given:
+    - "A delivery exists in the deliveries container"
+    - "The delivery is in PickedUp status"
+    - "The driverId in the request matches the driver assigned to the delivery"
+  when:
+    - "A POST request is made to /deliveries/{deliveryId}/complete with driverId"
+  then:
+    - "The delivery status transitions from PickedUp to Delivered"
+    - "The deliveredAt timestamp is recorded on the delivery"
+    - "totalDeliveryMinutes is calculated as the elapsed time from the OrderReadyForPickup readyAt timestamp to the deliveredAt timestamp"
+    - "slaBreached flag is set to true if totalDeliveryMinutes exceeds 45 minutes, false otherwise"
+    - "A DeliveryCompleted domain event is raised and published to topic delivery.completed with deliveryId, orderId, driverId, deliveredAt, totalDeliveryMinutes, and slaBreached"
+    - "HTTP 200 is returned with the updated delivery (status = Delivered)"
+  error_conditions:
+    - condition: "Delivery not found"
+      expected: "HTTP 404 returned"
+      error_code: "DELIVERY_NOT_FOUND"
+    - condition: "Delivery not in PickedUp status"
+      expected: "HTTP 409 returned"
+      error_code: "DELIVERY_NOT_PICKED_UP"
+    - condition: "Driver ID does not match the assigned driver"
+      expected: "HTTP 403 returned"
+      error_code: "DELIVERY_WRONG_DRIVER"
+  data_contracts:
+    request_schema: "{ driverId: Guid }"
+    response_schema: "{ deliveryId: Guid, orderId: Guid, status: string, driverId: Guid, deliveredAt: DateTimeOffset, totalDeliveryMinutes: int, slaBreached: bool }"
+    domain_events:
+      - event_name: "DeliveryCompleted"
+        target: "delivery.completed"
+        payload_fields:
+          - name: "deliveryId"
+            type: "Guid"
+          - name: "orderId"
+            type: "Guid"
+          - name: "driverId"
+            type: "Guid"
+          - name: "deliveredAt"
+            type: "DateTimeOffset"
+          - name: "totalDeliveryMinutes"
+            type: "int"
+          - name: "slaBreached"
+            type: "bool"
+  dependencies: []
+  estimated_complexity: 3
+  story_type: "backend"
+  notes: "The SLA threshold is 45 minutes from OrderReadyForPickup (readyAt) to Delivered (deliveredAt) per business rule DLV-R03. The slaBreached flag is informational and does not block delivery completion. The DeliveryCompleted event is consumed by the Orders context to transition the order to Delivered status."

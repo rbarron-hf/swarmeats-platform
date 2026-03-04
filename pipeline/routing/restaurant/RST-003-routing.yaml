@@ -1,0 +1,23 @@
+routing_decision:
+  story_id: "RST-003"
+  bounded_context: "Restaurant"
+  scores:
+    ac_node_count: 0        # 1 AC node -> 0
+    file_surface_area: 2    # Event handler, RestaurantOrder aggregate, Menu read service, OrderRejected event, outbox, event DTOs, operating hours validator, menu item availability checker, idempotency handler, tests -> 11+ files -> 2
+    integration_boundaries: 1  # Consumes OrderPlaced from Orders context -> 1
+    shared_aggregate: 0     # RestaurantOrder is owned by Restaurant context -> 0
+    error_condition_density: 1  # 3 error conditions (RST-R01 operating hours auto-reject, RST-R02 item unavailable auto-reject, DUPLICATE_EVENT) -> 1
+    domain_logic_depth: 2   # Cross-aggregate read (Menu for operating hours + item availability), conditional auto-rejection logic, event raising on rejection path -> 2
+    estimated_complexity: 2  # Complexity 5 -> 2
+  total_score: 8
+  routing: "single_agent_with_subagents"
+  override_applied: "domain_logic_depth=2 AND core of story -> capped at single_agent_with_subagents"
+  rationale: "Process Incoming Order is the most complex node in the Restaurant context. It consumes OrderPlaced from Orders context, reads the Menu aggregate for operating hours and item availability validation, creates a RestaurantOrder, and conditionally auto-rejects with an OrderRejected event via outbox pattern. The cross-aggregate read (Menu) plus conditional event raising plus idempotency requirements justify subagent delegation."
+  recommended_subagent_tasks:
+    - "Implement HandleOrderPlacedFunction ServiceBus trigger with idempotency via eventId"
+    - "Implement operating hours validation (RST-R01) reading Menu aggregate openingTime/closingTime"
+    - "Implement menu item availability validation (RST-R02) checking each lineItem against MenuItem availability"
+    - "Implement RestaurantOrder aggregate creation with conditional auto-rejection paths"
+    - "Implement OrderRejected event publishing via outbox pattern for auto-rejection scenarios"
+    - "Write unit tests for happy path, operating hours rejection, item unavailability rejection, and duplicate event handling"
+  recommended_swarm_workers: []

@@ -1,0 +1,82 @@
+self_assessment:
+  story_id: "RST-005"
+  behaviour_name: "Reject Order"
+  bounded_context: "Restaurant"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary:
+    description: >
+      HTTP POST endpoint for rejecting a restaurant order with a reason code and
+      optional notes. Uses MediatR command pattern. Validates reason code from
+      allowed set (RST-R04) and Pending status requirement (RST-R05) inside the
+      aggregate. Transitions Pending to Rejected and raises OrderRejected event via outbox.
+    files_created:
+      - "src/Restaurant/Domain/Commands/RejectOrderCommand.cs"
+      - "src/Restaurant/Domain/Commands/RejectOrderCommandHandler.cs"
+      - "src/Restaurant/Functions/RejectOrderFunction.cs"
+      - "src/Restaurant/Domain/Events/OrderRejected.cs"
+      - "tests/Restaurant.Tests/Unit/RST005Tests.cs"
+    files_reused:
+      - "src/Restaurant/Domain/Aggregates/RestaurantOrder.cs"
+      - "src/Restaurant/Infrastructure/Repositories/IRestaurantOrderRepository.cs"
+
+  acceptance_criteria:
+    - id: "RST-005-AC-01"
+      description: "Order transitions from Pending to Rejected"
+      status: "implemented"
+      evidence: "RestaurantOrder.Reject() transitions status and sets RejectedAt"
+    - id: "RST-005-AC-02"
+      description: "OrderRejected event published via outbox"
+      status: "implemented"
+      evidence: "Reject() calls AddDomainEvent(new OrderRejected{...})"
+    - id: "RST-005-AC-03"
+      description: "HTTP 200 returned with updated order"
+      status: "implemented"
+      evidence: "RejectOrderFunction returns OK with RejectOrderResult"
+
+  error_conditions:
+    - id: "RST-005-ERR-01"
+      description: "HTTP 404 when order not found"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+      status: "implemented"
+      evidence: "RestaurantOrderNotFoundException caught and mapped to 404"
+    - id: "RST-005-ERR-02"
+      description: "HTTP 409 when order not in Pending status"
+      error_code: "RESTAURANT_ORDER_NOT_PENDING"
+      status: "implemented"
+      evidence: "InvalidOrderStateException caught and mapped to 409"
+    - id: "RST-005-ERR-03"
+      description: "HTTP 400 when invalid reason code"
+      error_code: "RESTAURANT_INVALID_REASON"
+      status: "implemented"
+      evidence: "ArgumentException caught and mapped to 400"
+
+  domain_events:
+    - event_name: "OrderRejected"
+      target: "restaurant.order-rejected"
+      raised_on: "successful rejection"
+
+  test_coverage:
+    unit_tests:
+      - "RejectOrder_WhenPending_TransitionsToRejected"
+      - "RejectOrder_WhenPending_RaisesOrderRejectedEvent"
+      - "RejectOrder_WhenInvalidReasonCode_ThrowsArgumentException"
+      - "RejectOrder_WhenNotPending_ThrowsInvalidOrderStateException"
+      - "RejectOrder_WithValidReasonCodes_Succeeds (4 theory cases)"
+      - "RejectOrder_WhenOrderNotFound_ThrowsRestaurantOrderNotFoundException"
+      - "RejectOrder_WhenSuccessful_ReturnsResultAndSaves"
+    test_count: 7
+    all_tests_have_assertions: true
+
+  business_rules_enforced:
+    - "RST-R04: Valid reason codes (RESTAURANT_CLOSED, ITEM_UNAVAILABLE, TOO_BUSY, OTHER)"
+    - "RST-R05: Only reject from Pending status"
+
+  quality_checklist:
+    all_logic_in_aggregate: true
+    named_state_transitions: true
+    domain_events_inside_aggregate: true
+    outbox_pattern_used: true
+    immutable_value_objects: true
+    xml_doc_comments: true
+    idempotent_handlers: false

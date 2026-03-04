@@ -1,0 +1,379 @@
+coherence_report:
+  generated_at: "2026-03-03T00:00:00Z"
+  summary:
+    total_checks: 7
+    critical_flags: 2
+    warning_flags: 2
+    contexts_reviewed: 3
+    stories_reviewed: 27
+    ac_nodes_reviewed: 27
+  critical_flags:
+    - id: "CRIT-001"
+      check: "Check 2 — Integration Event Coverage / Check 4 — Cross-Context Contract Consistency"
+      severity: "critical"
+      description: >
+        The OrderReadyForPickup event payload (defined in system-map.yaml, FDD section 4.6,
+        and RST-007 AC node) contains: orderId, restaurantId, restaurantAddress, readyAt.
+        However, the consuming AC node DLV-001 (Handle OrderReadyForPickup Event) expects
+        a deliveryAddress field in the event payload to set the Delivery Route dropoff
+        location. The deliveryAddress is NOT part of the OrderReadyForPickup event schema
+        as defined by the producing context (Restaurant). This means DLV-001 cannot
+        construct the Route value object (pickup + dropoff) from the event alone.
+        The FDD section 5.6 states the handler should use "the order's delivery address
+        as dropoff location" but does not specify how it arrives in the Delivery context.
+        The delivery address originates from the OrderPlaced event but is not forwarded
+        through OrderReadyForPickup.
+      affected_contexts:
+        - "Restaurant"
+        - "Delivery"
+      affected_stories:
+        - "RST-007-STORY"
+        - "DLV-001-STORY"
+      affected_ac_nodes:
+        - "RST-007"
+        - "DLV-001"
+      recommended_resolution: >
+        Option A (preferred): Add deliveryAddress to the OrderReadyForPickup event payload
+        in the Restaurant context. The Restaurant context already has the delivery address
+        from the OrderPlaced event (stored on the RestaurantOrder). Update RST-007 AC node
+        to include deliveryAddress in the OrderReadyForPickup payload, and update the
+        system-map.yaml, FDD, and ubiquitous-language.yaml accordingly.
+        Option B: Have the Delivery context store the delivery address when it receives
+        OrderPlaced (add a new subscription), but this creates an additional cross-context
+        dependency and timing concern.
+    - id: "CRIT-002"
+      check: "Check 3 — FDD Business Rule Completeness"
+      severity: "critical"
+      description: >
+        Business rule RST-R06 (Menu item prices must be greater than GBP 0.00 and
+        preparation time must be at least 1 minute, validated on menu item creation/update)
+        has no corresponding AC node. The FDD defines an UpdateMenuItem command on the Menu
+        aggregate (section 4.2), but no AC node covers this command. The system-map.yaml
+        includes UpdateMenuItem in the Menu aggregate commands, and the function-topology.yaml
+        does not include a dedicated Azure Function for it. RST-R06 is the only business
+        rule without AC node coverage.
+      affected_contexts:
+        - "Restaurant"
+      affected_stories: []
+      affected_ac_nodes: []
+      recommended_resolution: >
+        Add a new AC node (e.g. RST-010) covering the UpdateMenuItem command with RST-R06
+        validation. This should include: (1) an AC node defining the create/update menu item
+        behaviour with price > 0.00 and preparation time >= 1 minute validations,
+        (2) a corresponding story, and (3) a routing decision. Also add the Azure Function
+        (e.g. UpdateMenuItemFunction) to the function-topology.yaml.
+  warning_flags:
+    - id: "WARN-001"
+      check: "Check 7 — Test Scaffold Consistency"
+      severity: "warning"
+      description: >
+        Layer 3b (test scaffold generation) was skipped. No test scaffold files exist
+        for any of the 27 stories across all three bounded contexts. Test scaffolds
+        would provide unit test templates, integration test templates, and contract test
+        templates for each story. Their absence means developers will need to create
+        test structures from scratch.
+      affected_contexts:
+        - "Orders"
+        - "Restaurant"
+        - "Delivery"
+      recommended_action: >
+        Run Layer 3b test scaffold generation for all 27 stories to produce unit test
+        templates covering happy paths and error scenarios, integration test templates
+        for event handlers, and contract test templates for cross-context event payloads.
+    - id: "WARN-002"
+      check: "Check 2 — Integration Event Coverage"
+      severity: "warning"
+      description: >
+        The OrderReadyForPickup event is consumed by both the Delivery context (DLV-001)
+        and the Orders context (ORD-007), but the FDD messaging table (section 6.1) lists
+        only Delivery as a subscriber to restaurant.order-ready. The system-map.yaml and
+        context-map.yaml correctly include the Orders context subscription, but the FDD
+        table is incomplete. This is a documentation inconsistency, not a functional gap,
+        since the pipeline artifacts are correct.
+      affected_contexts:
+        - "Orders"
+        - "Restaurant"
+      recommended_action: >
+        Update the FDD section 6.1 messaging table to include Orders as a subscriber to
+        the restaurant.order-ready topic alongside Delivery. The pipeline artifacts
+        (system-map.yaml, context-map.yaml) already reflect the correct subscriptions.
+  dependency_graph:
+    tiers:
+      - tier: 1
+        label: "No cross-context dependencies"
+        stories:
+          - story_id: "ORD-001"
+            bounded_context: "Orders"
+            routing: "single_agent_with_subagents"
+            depends_on: []
+          - story_id: "ORD-002"
+            bounded_context: "Orders"
+            routing: "single_agent"
+            depends_on: []
+          - story_id: "ORD-003"
+            bounded_context: "Orders"
+            routing: "single_agent"
+            depends_on: []
+          - story_id: "ORD-004"
+            bounded_context: "Orders"
+            routing: "single_agent"
+            depends_on: []
+          - story_id: "RST-001"
+            bounded_context: "Restaurant"
+            routing: "single_agent"
+            depends_on: []
+          - story_id: "RST-002"
+            bounded_context: "Restaurant"
+            routing: "single_agent"
+            depends_on: []
+          - story_id: "DLV-006"
+            bounded_context: "Delivery"
+            routing: "single_agent"
+            depends_on: []
+          - story_id: "DLV-007"
+            bounded_context: "Delivery"
+            routing: "single_agent"
+            depends_on: []
+          - story_id: "DLV-008"
+            bounded_context: "Delivery"
+            routing: "single_agent"
+            depends_on: []
+      - tier: 2
+        label: "Depends on Tier 1 cross-context events (OrderPlaced, OrderCancelled)"
+        stories:
+          - story_id: "RST-003"
+            bounded_context: "Restaurant"
+            routing: "single_agent_with_subagents"
+            depends_on:
+              - "ORD-001 (OrderPlaced event)"
+          - story_id: "RST-004"
+            bounded_context: "Restaurant"
+            routing: "single_agent"
+            depends_on:
+              - "RST-003 (within-context)"
+          - story_id: "RST-005"
+            bounded_context: "Restaurant"
+            routing: "single_agent"
+            depends_on:
+              - "RST-003 (within-context)"
+          - story_id: "RST-006"
+            bounded_context: "Restaurant"
+            routing: "single_agent"
+            depends_on:
+              - "RST-004 (within-context)"
+          - story_id: "RST-007"
+            bounded_context: "Restaurant"
+            routing: "single_agent"
+            depends_on:
+              - "RST-006 (within-context)"
+          - story_id: "RST-008"
+            bounded_context: "Restaurant"
+            routing: "single_agent"
+            depends_on:
+              - "ORD-002 (OrderCancelled event)"
+          - story_id: "RST-009"
+            bounded_context: "Restaurant"
+            routing: "single_agent"
+            depends_on:
+              - "RST-003 (within-context)"
+          - story_id: "DLV-009"
+            bounded_context: "Delivery"
+            routing: "single_agent"
+            depends_on:
+              - "ORD-002 (OrderCancelled event)"
+      - tier: 3
+        label: "Depends on Tier 2 cross-context events (OrderAccepted, OrderRejected, OrderReadyForPickup)"
+        stories:
+          - story_id: "DLV-001"
+            bounded_context: "Delivery"
+            routing: "single_agent"
+            depends_on:
+              - "RST-007 (OrderReadyForPickup event)"
+          - story_id: "DLV-002"
+            bounded_context: "Delivery"
+            routing: "single_agent_with_subagents"
+            depends_on:
+              - "DLV-001 (within-context)"
+          - story_id: "DLV-003"
+            bounded_context: "Delivery"
+            routing: "single_agent"
+            depends_on:
+              - "DLV-002 (within-context)"
+          - story_id: "DLV-004"
+            bounded_context: "Delivery"
+            routing: "single_agent"
+            depends_on:
+              - "DLV-002 (within-context)"
+          - story_id: "DLV-005"
+            bounded_context: "Delivery"
+            routing: "single_agent"
+            depends_on:
+              - "DLV-004 (within-context)"
+          - story_id: "ORD-005"
+            bounded_context: "Orders"
+            routing: "single_agent"
+            depends_on:
+              - "RST-004 (OrderAccepted event)"
+          - story_id: "ORD-006"
+            bounded_context: "Orders"
+            routing: "single_agent"
+            depends_on:
+              - "RST-005 (OrderRejected event)"
+          - story_id: "ORD-007"
+            bounded_context: "Orders"
+            routing: "single_agent"
+            depends_on:
+              - "RST-007 (OrderReadyForPickup event)"
+      - tier: 4
+        label: "Depends on Tier 3 cross-context events (DriverAssigned, DeliveryCompleted)"
+        stories:
+          - story_id: "ORD-008"
+            bounded_context: "Orders"
+            routing: "single_agent"
+            depends_on:
+              - "DLV-002 (DriverAssigned event)"
+          - story_id: "ORD-009"
+            bounded_context: "Orders"
+            routing: "single_agent"
+            depends_on:
+              - "DLV-005 (DeliveryCompleted event)"
+    sequencing_constraints:
+      - "ORD-001 must be implemented before RST-003 (OrderPlaced event producer -> consumer)"
+      - "ORD-002 must be implemented before RST-008 and DLV-009 (OrderCancelled event producer -> consumers)"
+      - "RST-004 must be implemented before ORD-005 (OrderAccepted event producer -> consumer)"
+      - "RST-005 must be implemented before ORD-006 (OrderRejected event producer -> consumer)"
+      - "RST-007 must be implemented before DLV-001 and ORD-007 (OrderReadyForPickup event producer -> consumers)"
+      - "DLV-002 must be implemented before ORD-008 (DriverAssigned event producer -> consumer)"
+      - "DLV-005 must be implemented before ORD-009 (DeliveryCompleted event producer -> consumer)"
+      - "No circular dependencies detected in the global dependency graph"
+  fdd_coverage:
+    total_business_rules_identified: 18
+    rules_with_ac_coverage: 17
+    rules_without_coverage:
+      - rule_id: "RST-R06"
+        rule_description: "Menu item prices must be greater than GBP 0.00 and preparation time must be at least 1 minute"
+        enforcement_point: "Validated on menu item creation/update (UpdateMenuItem command)"
+        gap_description: "No AC node exists for the UpdateMenuItem command. The Menu aggregate commands include UpdateMenuItem in system-map.yaml but no AC node, story, or routing decision covers it."
+  event_flow_matrix:
+    - event_name: "OrderPlaced"
+      raised_by_context: "Orders"
+      raised_by_story: "ORD-001"
+      topic: "orders.placed"
+      consumed_by:
+        - context: "Restaurant"
+          story: "RST-003"
+          handler_exists: true
+          payload_match: true
+    - event_name: "OrderCancelled"
+      raised_by_context: "Orders"
+      raised_by_story: "ORD-002"
+      topic: "orders.cancelled"
+      consumed_by:
+        - context: "Restaurant"
+          story: "RST-008"
+          handler_exists: true
+          payload_match: true
+        - context: "Delivery"
+          story: "DLV-009"
+          handler_exists: true
+          payload_match: true
+    - event_name: "OrderAccepted"
+      raised_by_context: "Restaurant"
+      raised_by_story: "RST-004"
+      topic: "restaurant.order-accepted"
+      consumed_by:
+        - context: "Orders"
+          story: "ORD-005"
+          handler_exists: true
+          payload_match: true
+    - event_name: "OrderRejected"
+      raised_by_context: "Restaurant"
+      raised_by_story: "RST-003 (auto-reject) / RST-005 (manual reject)"
+      topic: "restaurant.order-rejected"
+      consumed_by:
+        - context: "Orders"
+          story: "ORD-006"
+          handler_exists: true
+          payload_match: true
+    - event_name: "OrderReadyForPickup"
+      raised_by_context: "Restaurant"
+      raised_by_story: "RST-007"
+      topic: "restaurant.order-ready"
+      consumed_by:
+        - context: "Orders"
+          story: "ORD-007"
+          handler_exists: true
+          payload_match: true
+        - context: "Delivery"
+          story: "DLV-001"
+          handler_exists: true
+          payload_match: false
+          mismatch_detail: "DLV-001 expects deliveryAddress in the event payload but OrderReadyForPickup only includes restaurantAddress. See CRIT-001."
+    - event_name: "DriverAssigned"
+      raised_by_context: "Delivery"
+      raised_by_story: "DLV-002"
+      topic: "delivery.driver-assigned"
+      consumed_by:
+        - context: "Orders"
+          story: "ORD-008"
+          handler_exists: true
+          payload_match: true
+    - event_name: "DeliveryCompleted"
+      raised_by_context: "Delivery"
+      raised_by_story: "DLV-005"
+      topic: "delivery.completed"
+      consumed_by:
+        - context: "Orders"
+          story: "ORD-009"
+          handler_exists: true
+          payload_match: true
+  check_details:
+    check_1_shared_aggregate_conflicts:
+      status: "pass"
+      detail: >
+        No aggregates appear in multiple contexts with conflicting field assumptions.
+        The Order aggregate exists only in the Orders context. The RestaurantOrder
+        aggregate is a distinct local projection in the Restaurant context with its
+        own state machine. The Delivery aggregate exists only in the Delivery context.
+        The Menu aggregate exists only in the Restaurant context. Status enums share
+        names across contexts (Accepted, Preparing, ReadyForPickup, Delivered) but are
+        defined in separate namespaces with ambiguity_flag=true in ubiquitous-language.yaml.
+    check_2_integration_event_coverage:
+      status: "critical"
+      detail: >
+        7 domain events verified across 9 event flows. 8 of 9 flows have matching
+        payload schemas. One critical mismatch: OrderReadyForPickup -> DLV-001
+        (missing deliveryAddress). See CRIT-001.
+    check_3_fdd_business_rule_completeness:
+      status: "critical"
+      detail: >
+        17 of 18 FDD business rules have AC node coverage. RST-R06 (menu item price
+        and preparation time validation on UpdateMenuItem command) has no AC node.
+        See CRIT-002.
+    check_4_cross_context_contract_consistency:
+      status: "critical"
+      detail: >
+        Producing and consuming story event payloads match for 8 of 9 event flows.
+        The OrderReadyForPickup event payload mismatch between RST-007 (producer)
+        and DLV-001 (consumer) is a contract inconsistency. See CRIT-001.
+    check_5_dependency_graph_validity:
+      status: "pass"
+      detail: >
+        No circular dependencies detected. The global dependency graph resolves
+        cleanly into 4 tiers. 9 stories in Tier 1 (no cross-context deps), 8 in
+        Tier 2, 8 in Tier 3, and 2 in Tier 4. All 27 stories are accounted for.
+    check_6_routing_decision_review:
+      status: "pass"
+      detail: >
+        24 stories routed as single_agent, 3 as single_agent_with_subagents
+        (ORD-001, RST-003, DLV-002), 0 as full_swarm. No single_agent stories
+        have cross-context dependencies that would suggest subagent routing is
+        needed. The cross-context event handlers (ORD-005 through ORD-009,
+        RST-008, DLV-001, DLV-009) are correctly classified as single_agent
+        because they perform simple state transitions on receipt of events.
+        No stories appear over-classified.
+    check_7_test_scaffold_consistency:
+      status: "warning"
+      detail: >
+        Layer 3b (test scaffold generation) was skipped. No test scaffold files
+        exist for any of the 27 stories. See WARN-001.

@@ -1,0 +1,55 @@
+story:
+  id: "RST-001-STORY"
+  ac_node_ref: "RST-001"
+  bounded_context: "Restaurant"
+  epic: "Restaurant Menu Management"
+  feature: "Menu Retrieval"
+  title: "Retrieve the full restaurant menu"
+  user_story: >
+    As restaurant staff, I want to view the full restaurant menu including all
+    items, their availability, and operating hours so that I can verify the
+    current menu state presented to customers.
+  acceptance_criteria:
+    - id: "RST-001-AC-01"
+      given: >
+        A restaurant exists with an active menu containing menu items,
+        availability flags, and operating hours (openingTime/closingTime UTC)
+      when: >
+        A GET request is received for /restaurants/{restaurantId}/menu
+      then: >
+        The full menu is returned with HTTP 200
+    - id: "RST-001-AC-02"
+      given: >
+        A restaurant exists with an active menu
+      when: >
+        A GET request is received for /restaurants/{restaurantId}/menu
+      then: >
+        Response includes all menu items with name, description, price,
+        category, and availability flag
+    - id: "RST-001-AC-03"
+      given: >
+        A restaurant exists with an active menu
+      when: >
+        A GET request is received for /restaurants/{restaurantId}/menu
+      then: >
+        Response includes restaurant operating hours (openingTime, closingTime)
+  error_scenarios:
+    - id: "RST-001-ERR-01"
+      condition: "Restaurant with the given restaurantId does not exist in the menus container"
+      expected_behaviour: "HTTP 404 returned with error body"
+      error_code: "RESTAURANT_NOT_FOUND"
+  story_dependencies: []
+  story_type: "query"
+  estimated_points: 1
+  ddd_pattern: "query_handler"
+  ddd_notes: >
+    Read-only query against the menus Cosmos DB container partitioned by
+    /restaurantId. Returns the full Menu aggregate state. No domain events
+    raised. Simplest endpoint in the Restaurant context.
+  azure_function: "GetMenuFunction"
+  trigger_type: "HTTP GET"
+  traceability:
+    fdd_sections:
+      - "4.5 API Endpoints - GET /restaurants/{restaurantId}/menu"
+    ac_node_ids:
+      - "RST-001"

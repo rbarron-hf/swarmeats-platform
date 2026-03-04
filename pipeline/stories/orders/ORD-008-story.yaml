@@ -1,0 +1,64 @@
+story:
+  id: "ORD-008-STORY"
+  ac_node_ref: "ORD-008"
+  bounded_context: "Orders"
+  epic: "Order Lifecycle Management"
+  feature: "Order Status Progression"
+  title: "Handle DriverAssigned event to progress order to InDelivery"
+  user_story: >
+    As the system, I need to consume the DriverAssigned event from the
+    Delivery context so that the order status is updated to InDelivery and the
+    customer can see a driver is on the way with their food.
+  acceptance_criteria:
+    - id: "ORD-008-AC-01"
+      given: >
+        An order exists with the specified orderId in the Cosmos DB orders
+        container and the order has status ReadyForPickup
+      when: >
+        A DriverAssigned event is received from the Delivery context on
+        topic delivery.driver-assigned
+      then: >
+        The order status transitions from ReadyForPickup to InDelivery
+    - id: "ORD-008-AC-02"
+      given: >
+        An order exists with the specified orderId and the order has status
+        ReadyForPickup
+      when: >
+        A DriverAssigned event is received from the Delivery context on
+        topic delivery.driver-assigned
+      then: >
+        The inDeliveryAt timestamp is recorded on the order
+    - id: "ORD-008-AC-03"
+      given: >
+        An order exists with the specified orderId and the order has status
+        ReadyForPickup
+      when: >
+        A DriverAssigned event is received from the Delivery context on
+        topic delivery.driver-assigned
+      then: >
+        The updated order is persisted to Cosmos DB orders container
+  error_scenarios:
+    - id: "ORD-008-ERR-01"
+      condition: "The order status transition is invalid (e.g. order is not in ReadyForPickup status)"
+      expected_behaviour: "A warning is logged and the event is discarded without throwing an exception"
+      error_code: "ORDER_INVALID_TRANSITION"
+  story_dependencies:
+    - story_id: "ORD-007-STORY"
+      reason: "The order must be in ReadyForPickup status, which requires processing OrderReadyForPickup first"
+    - story_id: "DLV-002-STORY"
+      reason: "The DriverAssigned event is produced by the Delivery context AssignDriver command"
+  story_type: "event-handler"
+  estimated_points: 2
+  ddd_pattern: "domain_event_handler"
+  ddd_notes: >
+    Consumes DriverAssigned integration event from Delivery context. Must be
+    idempotent using eventId to detect duplicates. Invalid transitions are
+    logged as warnings and discarded to prevent poison messages on Service Bus.
+    No domain events are raised.
+  azure_function: "HandleDriverAssignedFunction"
+  trigger_type: "ServiceBus Topic"
+  traceability:
+    fdd_sections:
+      - "3.6 Domain Events Consumed - DriverAssigned"
+    ac_node_ids:
+      - "ORD-008"

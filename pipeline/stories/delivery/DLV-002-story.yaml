@@ -1,0 +1,109 @@
+story:
+  id: "DLV-002-STORY"
+  ac_node_ref: "DLV-002"
+  bounded_context: "Delivery"
+  epic: "Delivery Lifecycle Management"
+  feature: "Driver Assignment"
+  title: "Assign an available driver to a delivery"
+  user_story: >
+    As a driver, I want to be assigned to a delivery that is awaiting a driver
+    so that I can pick up the food from the restaurant and deliver it to the
+    customer.
+  acceptance_criteria:
+    - id: "DLV-002-AC-01"
+      given: >
+        A delivery exists in the deliveries container and the delivery is in
+        AwaitingDriver status and the driver specified by driverId has no
+        active delivery (no delivery in DriverAssigned or PickedUp status for
+        this driver) and the driver's current location is within 5km of the
+        restaurant address (calculated via Haversine formula)
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/assign with
+        driverId and driverLocation (latitude, longitude)
+      then: >
+        The delivery status transitions from AwaitingDriver to DriverAssigned
+    - id: "DLV-002-AC-02"
+      given: >
+        All driver assignment validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/assign
+      then: >
+        The driverId is recorded on the delivery
+    - id: "DLV-002-AC-03"
+      given: >
+        All driver assignment validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/assign
+      then: >
+        The driver's initial location is stored as the current DriverLocation
+    - id: "DLV-002-AC-04"
+      given: >
+        All driver assignment validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/assign
+      then: >
+        The EstimatedArrival is calculated based on the driver's location and
+        the delivery route
+    - id: "DLV-002-AC-05"
+      given: >
+        All driver assignment validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/assign
+      then: >
+        A DriverAssigned domain event is raised and published to topic
+        delivery.driver-assigned
+    - id: "DLV-002-AC-06"
+      given: >
+        All driver assignment validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/assign
+      then: >
+        The delivery document is deleted from the 'unassigned' partition and
+        recreated under the driver's partition key (/driverId)
+    - id: "DLV-002-AC-07"
+      given: >
+        All driver assignment validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/assign
+      then: >
+        HTTP 200 is returned with the updated delivery (status =
+        DriverAssigned)
+  error_scenarios:
+    - id: "DLV-002-ERR-01"
+      condition: "Delivery not found"
+      expected_behaviour: "HTTP 404 returned"
+      error_code: "DELIVERY_NOT_FOUND"
+    - id: "DLV-002-ERR-02"
+      condition: "Delivery not in AwaitingDriver status (already assigned)"
+      expected_behaviour: "HTTP 409 returned"
+      error_code: "DELIVERY_ALREADY_ASSIGNED"
+    - id: "DLV-002-ERR-03"
+      condition: "Driver already has an active delivery (in DriverAssigned or PickedUp status)"
+      expected_behaviour: "HTTP 409 returned"
+      error_code: "DRIVER_NOT_AVAILABLE"
+    - id: "DLV-002-ERR-04"
+      condition: "Driver is more than 5km from the restaurant (Haversine distance)"
+      expected_behaviour: "HTTP 400 returned"
+      error_code: "DRIVER_TOO_FAR"
+  story_dependencies:
+    - story_id: "DLV-001-STORY"
+      reason: "A Delivery must be created in AwaitingDriver status via OrderReadyForPickup event before a driver can be assigned"
+  story_type: "command"
+  estimated_points: 6
+  ddd_pattern: "aggregate_command"
+  ddd_notes: >
+    High complexity due to: (1) Haversine distance calculation between driver
+    location and restaurant coordinates (DLV-R02), (2) partition key migration
+    from 'unassigned' sentinel to driver's partition key requiring delete +
+    recreate, (3) cross-partition query to check driver availability (DLV-R01).
+    Raises DriverAssigned domain event via outbox pattern. Consumed by Orders
+    context.
+  azure_function: "AssignDriverFunction"
+  trigger_type: "HTTP POST"
+  traceability:
+    fdd_sections:
+      - "5.3 Business Rules (DLV-R01, DLV-R02)"
+      - "5.4 API Endpoints - POST /deliveries/{deliveryId}/assign"
+      - "5.5 Domain Events Raised - DriverAssigned"
+    ac_node_ids:
+      - "DLV-002"

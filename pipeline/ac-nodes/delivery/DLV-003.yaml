@@ -1,0 +1,38 @@
+ac_node:
+  id: "DLV-003"
+  bounded_context: "Delivery"
+  aggregate_root: "Delivery"
+  behaviour_name: "Update Driver Location"
+  trigger: "HTTP PUT /deliveries/{deliveryId}/location"
+  azure_function: "UpdateDriverLocationFunction"
+  given:
+    - "A delivery exists in the deliveries container"
+    - "The delivery is in DriverAssigned or PickedUp status"
+    - "The driverId in the request matches the driver assigned to the delivery"
+  when:
+    - "A PUT request is made to /deliveries/{deliveryId}/location with driverId, latitude, and longitude"
+  then:
+    - "The DriverLocation value object is updated with the new latitude, longitude, and current timestamp"
+    - "The EstimatedArrival is recalculated based on the new driver location and the delivery route dropoff address"
+    - "HTTP 200 is returned with the updated estimated arrival time"
+  error_conditions:
+    - condition: "Delivery not found"
+      expected: "HTTP 404 returned"
+      error_code: "DELIVERY_NOT_FOUND"
+    - condition: "Delivery not in DriverAssigned or PickedUp status"
+      expected: "HTTP 409 returned"
+      error_code: "DELIVERY_NOT_ACTIVE"
+    - condition: "Driver ID does not match the assigned driver"
+      expected: "HTTP 403 returned"
+      error_code: "DELIVERY_WRONG_DRIVER"
+  data_contracts:
+    request_schema: "{ driverId: Guid, latitude: decimal, longitude: decimal }"
+    response_schema: "{ deliveryId: Guid, estimatedArrival: { estimatedArrivalTime: DateTimeOffset, estimatedMinutes: int }, lastLocationUpdate: DateTimeOffset }"
+    domain_events:
+      - event_name: ""
+        target: ""
+        payload_fields: []
+  dependencies: []
+  estimated_complexity: 3
+  story_type: "backend"
+  notes: "Location pings are expected every 10 seconds per scaling requirements. No domain events are raised; this is a state update only. The estimated arrival recalculation is based on straight-line distance from current location to dropoff address."

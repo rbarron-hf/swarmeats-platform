@@ -1,0 +1,65 @@
+story:
+  id: "ORD-007-STORY"
+  ac_node_ref: "ORD-007"
+  bounded_context: "Orders"
+  epic: "Order Lifecycle Management"
+  feature: "Order Status Progression"
+  title: "Handle OrderReadyForPickup event to progress order to ReadyForPickup"
+  user_story: >
+    As the system, I need to consume the OrderReadyForPickup event from the
+    Restaurant context so that the order status is updated to ReadyForPickup
+    and the customer can see their food is ready for driver collection.
+  acceptance_criteria:
+    - id: "ORD-007-AC-01"
+      given: >
+        An order exists with the specified orderId in the Cosmos DB orders
+        container and the order has status Accepted or Preparing
+      when: >
+        An OrderReadyForPickup event is received from the Restaurant context
+        on topic restaurant.order-ready
+      then: >
+        The order status transitions to ReadyForPickup
+    - id: "ORD-007-AC-02"
+      given: >
+        An order exists with the specified orderId and the order has status
+        Accepted or Preparing
+      when: >
+        An OrderReadyForPickup event is received from the Restaurant context
+        on topic restaurant.order-ready
+      then: >
+        The readyForPickupAt timestamp is recorded on the order
+    - id: "ORD-007-AC-03"
+      given: >
+        An order exists with the specified orderId and the order has status
+        Accepted or Preparing
+      when: >
+        An OrderReadyForPickup event is received from the Restaurant context
+        on topic restaurant.order-ready
+      then: >
+        The updated order is persisted to Cosmos DB orders container
+  error_scenarios:
+    - id: "ORD-007-ERR-01"
+      condition: "The order status transition is invalid (e.g. order is Placed, Cancelled, or Rejected)"
+      expected_behaviour: "A warning is logged and the event is discarded without throwing an exception"
+      error_code: "ORDER_INVALID_TRANSITION"
+  story_dependencies:
+    - story_id: "ORD-005-STORY"
+      reason: "The order must be in Accepted (or Preparing) status, which requires processing OrderAccepted first"
+    - story_id: "RST-007-STORY"
+      reason: "The OrderReadyForPickup event is produced by the Restaurant context MarkReadyForPickup command"
+  story_type: "event-handler"
+  estimated_points: 2
+  ddd_pattern: "domain_event_handler"
+  ddd_notes: >
+    Consumes OrderReadyForPickup integration event from Restaurant context.
+    Accepts transitions from both Accepted and Preparing statuses since the
+    Orders context may not have received an intermediate status update. Must
+    be idempotent using eventId. Invalid transitions are logged as warnings
+    and discarded.
+  azure_function: "HandleOrderReadyFunction"
+  trigger_type: "ServiceBus Topic"
+  traceability:
+    fdd_sections:
+      - "3.6 Domain Events Consumed - OrderReadyForPickup"
+    ac_node_ids:
+      - "ORD-007"

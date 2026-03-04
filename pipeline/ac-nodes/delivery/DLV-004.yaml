@@ -1,0 +1,38 @@
+ac_node:
+  id: "DLV-004"
+  bounded_context: "Delivery"
+  aggregate_root: "Delivery"
+  behaviour_name: "Confirm Pickup"
+  trigger: "HTTP POST /deliveries/{deliveryId}/pickup"
+  azure_function: "ConfirmPickupFunction"
+  given:
+    - "A delivery exists in the deliveries container"
+    - "The delivery is in DriverAssigned status"
+    - "The driverId in the request matches the driver assigned to the delivery"
+  when:
+    - "A POST request is made to /deliveries/{deliveryId}/pickup with driverId"
+  then:
+    - "The delivery status transitions from DriverAssigned to PickedUp"
+    - "The pickup timestamp is recorded on the delivery"
+    - "HTTP 200 is returned with the updated delivery (status = PickedUp)"
+  error_conditions:
+    - condition: "Delivery not found"
+      expected: "HTTP 404 returned"
+      error_code: "DELIVERY_NOT_FOUND"
+    - condition: "Delivery not in DriverAssigned status (invalid state transition)"
+      expected: "HTTP 409 returned"
+      error_code: "DELIVERY_INVALID_TRANSITION"
+    - condition: "Driver ID does not match the assigned driver"
+      expected: "HTTP 403 returned"
+      error_code: "DELIVERY_WRONG_DRIVER"
+  data_contracts:
+    request_schema: "{ driverId: Guid }"
+    response_schema: "{ deliveryId: Guid, orderId: Guid, status: string, driverId: Guid, driverLocation: { latitude: decimal, longitude: decimal, recordedAt: DateTimeOffset }, route: { pickup: { street: string, city: string, postcode: string, latitude: decimal, longitude: decimal }, dropoff: { street: string, city: string, postcode: string, latitude: decimal, longitude: decimal } }, pickedUpAt: DateTimeOffset }"
+    domain_events:
+      - event_name: ""
+        target: ""
+        payload_fields: []
+  dependencies: []
+  estimated_complexity: 2
+  story_type: "backend"
+  notes: "No domain events are raised on pickup confirmation. The status transition is straightforward: DriverAssigned to PickedUp. Driver location updates continue to be accepted after pickup."

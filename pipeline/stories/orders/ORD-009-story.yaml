@@ -1,0 +1,64 @@
+story:
+  id: "ORD-009-STORY"
+  ac_node_ref: "ORD-009"
+  bounded_context: "Orders"
+  epic: "Order Lifecycle Management"
+  feature: "Order Status Progression"
+  title: "Handle DeliveryCompleted event to progress order to Delivered"
+  user_story: >
+    As the system, I need to consume the DeliveryCompleted event from the
+    Delivery context so that the order status is updated to Delivered and the
+    order lifecycle is completed for the customer.
+  acceptance_criteria:
+    - id: "ORD-009-AC-01"
+      given: >
+        An order exists with the specified orderId in the Cosmos DB orders
+        container and the order has status InDelivery
+      when: >
+        A DeliveryCompleted event is received from the Delivery context on
+        topic delivery.completed
+      then: >
+        The order status transitions from InDelivery to Delivered
+    - id: "ORD-009-AC-02"
+      given: >
+        An order exists with the specified orderId and the order has status
+        InDelivery
+      when: >
+        A DeliveryCompleted event is received from the Delivery context on
+        topic delivery.completed
+      then: >
+        The deliveredAt timestamp is recorded on the order
+    - id: "ORD-009-AC-03"
+      given: >
+        An order exists with the specified orderId and the order has status
+        InDelivery
+      when: >
+        A DeliveryCompleted event is received from the Delivery context on
+        topic delivery.completed
+      then: >
+        The updated order is persisted to Cosmos DB orders container
+  error_scenarios:
+    - id: "ORD-009-ERR-01"
+      condition: "The order status transition is invalid (e.g. order is not in InDelivery status)"
+      expected_behaviour: "A warning is logged and the event is discarded without throwing an exception"
+      error_code: "ORDER_INVALID_TRANSITION"
+  story_dependencies:
+    - story_id: "ORD-008-STORY"
+      reason: "The order must be in InDelivery status, which requires processing DriverAssigned first"
+    - story_id: "DLV-005-STORY"
+      reason: "The DeliveryCompleted event is produced by the Delivery context CompleteDelivery command"
+  story_type: "event-handler"
+  estimated_points: 2
+  ddd_pattern: "domain_event_handler"
+  ddd_notes: >
+    Consumes DeliveryCompleted integration event from Delivery context. This is
+    the terminal happy-path transition for an order. Must be idempotent using
+    eventId to detect duplicates. Invalid transitions are logged as warnings
+    and discarded. No domain events are raised.
+  azure_function: "HandleDeliveryCompletedFunction"
+  trigger_type: "ServiceBus Topic"
+  traceability:
+    fdd_sections:
+      - "3.6 Domain Events Consumed - DeliveryCompleted"
+    ac_node_ids:
+      - "ORD-009"

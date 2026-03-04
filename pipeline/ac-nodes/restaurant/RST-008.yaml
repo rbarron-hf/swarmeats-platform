@@ -1,0 +1,38 @@
+ac_node:
+  id: "RST-008"
+  bounded_context: "Restaurant"
+  aggregate_root: "RestaurantOrder"
+  behaviour_name: "Handle Order Cancelled"
+  trigger: "ServiceBus topic: orders.cancelled, subscription: restaurant-context"
+  azure_function: "HandleOrderCancelledFunction"
+  given:
+    - "An OrderCancelled event is received from the Orders context on the orders.cancelled topic"
+    - "The event payload contains orderId, orderNumber, restaurantId, and cancelledAt"
+    - "A RestaurantOrder may or may not exist for the given orderId in the restaurant-orders container"
+  when:
+    - "The HandleOrderCancelledFunction processes the OrderCancelled event"
+  then:
+    - "The handler looks up the RestaurantOrder by orderId and restaurantId in the restaurant-orders container"
+    - "If the RestaurantOrder is in Pending status: the order is marked as Cancelled and is not presented to staff on the dashboard"
+    - "If the RestaurantOrder is in Accepted, Preparing, or ReadyForPickup status: a warning is logged indicating the food is already being prepared, and no status change is made"
+    - "If no RestaurantOrder is found (event arrived before OrderPlaced was processed): the event is logged and discarded"
+    - "The handler must be idempotent using eventId to prevent duplicate processing"
+    - "No domain events are raised by this handler"
+  error_conditions:
+    - condition: "Duplicate event (same eventId already processed)"
+      expected: "Event silently discarded; no state change"
+      error_code: "DUPLICATE_EVENT"
+    - condition: "RestaurantOrder is in Accepted or later status when cancellation arrives"
+      expected: "Warning logged; no state change; event not retried"
+      error_code: "CANCELLATION_TOO_LATE"
+  data_contracts:
+    request_schema: "ServiceBus message envelope: { eventType: 'OrderCancelled', eventId: Guid, occurredAt: DateTimeOffset, sourceContext: 'Orders', payload: { orderId: Guid, orderNumber: string, restaurantId: Guid, cancelledAt: DateTimeOffset } }"
+    response_schema: "No HTTP response (ServiceBus trigger). Side effects: RestaurantOrder status updated to Cancelled if currently Pending."
+    domain_events: []
+  dependencies:
+    - context: "Orders"
+      type: "event_subscription"
+      description: "Subscribes to OrderCancelled events on the orders.cancelled Service Bus topic via the restaurant-context subscription. Handles customer-initiated cancellations for orders that may still be pending restaurant review."
+  estimated_complexity: 2
+  story_type: "integration"
+  notes: "This handler is simpler than RST-003 because it only reads and conditionally updates one document without raising events. The key design decision is that cancellation after acceptance is logged but does not change state, since the restaurant may have already started preparing the food. The handler must gracefully handle the race condition where the cancellation event arrives before the OrderPlaced event has been processed."

@@ -1,0 +1,50 @@
+routing_summary:
+  bounded_context: "Orders"
+  generated_at: "2026-03-03T00:00:00Z"
+  total_stories: 9
+  routing_breakdown:
+    single_agent: 8
+    single_agent_with_subagents: 1
+    full_swarm: 0
+  estimated_total_points: 21
+  stories_by_routing:
+    single_agent:
+      - story_id: "ORD-002"
+        behaviour_name: "Cancel Order"
+        total_score: 3
+        estimated_complexity: 3
+      - story_id: "ORD-003"
+        behaviour_name: "Get Order by ID"
+        total_score: 0
+        estimated_complexity: 1
+      - story_id: "ORD-004"
+        behaviour_name: "Get Orders by Customer"
+        total_score: 0
+        estimated_complexity: 2
+      - story_id: "ORD-005"
+        behaviour_name: "Handle OrderAccepted event"
+        total_score: 1
+        estimated_complexity: 2
+      - story_id: "ORD-006"
+        behaviour_name: "Handle OrderRejected event"
+        total_score: 1
+        estimated_complexity: 2
+      - story_id: "ORD-007"
+        behaviour_name: "Handle OrderReadyForPickup event"
+        total_score: 1
+        estimated_complexity: 2
+      - story_id: "ORD-008"
+        behaviour_name: "Handle DriverAssigned event"
+        total_score: 1
+        estimated_complexity: 2
+      - story_id: "ORD-009"
+        behaviour_name: "Handle DeliveryCompleted event"
+        total_score: 1
+        estimated_complexity: 2
+    single_agent_with_subagents:
+      - story_id: "ORD-001"
+        behaviour_name: "Place Order with valid line items"
+        total_score: 8
+        estimated_complexity: 5
+        override_applied: "domain_logic_depth=2 AND core command -> capped at single_agent_with_subagents"
+    full_swarm: []

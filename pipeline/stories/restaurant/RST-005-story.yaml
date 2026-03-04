@@ -1,0 +1,88 @@
+story:
+  id: "RST-005-STORY"
+  ac_node_ref: "RST-005"
+  bounded_context: "Restaurant"
+  epic: "Restaurant Order Management"
+  feature: "Order Rejection"
+  title: "Reject an incoming order with a reason code"
+  user_story: >
+    As restaurant staff, I want to reject an incoming order with a reason code
+    so that the customer is informed why their order could not be fulfilled and
+    the order lifecycle is terminated.
+  acceptance_criteria:
+    - id: "RST-005-AC-01"
+      given: >
+        A RestaurantOrder exists in the restaurant-orders container with the
+        given orderId and restaurantId and the RestaurantOrder is in Pending
+        status
+      when: >
+        Restaurant staff sends a POST request to
+        /restaurants/{restaurantId}/orders/{orderId}/reject with a reasonCode
+        and optional notes
+      then: >
+        The reasonCode is validated to be one of the allowed values:
+        RESTAURANT_CLOSED, ITEM_UNAVAILABLE, TOO_BUSY, OTHER per RST-R04
+    - id: "RST-005-AC-02"
+      given: >
+        A RestaurantOrder is in Pending status and reasonCode is valid
+      when: >
+        Restaurant staff sends a POST request to reject the order
+      then: >
+        The RestaurantOrder status transitions from Pending to Rejected per
+        RST-R05
+    - id: "RST-005-AC-03"
+      given: >
+        A RestaurantOrder is in Pending status and reasonCode is valid
+      when: >
+        Restaurant staff sends a POST request to reject the order
+      then: >
+        The rejectedAt timestamp and reasonCode are recorded on the
+        RestaurantOrder
+    - id: "RST-005-AC-04"
+      given: >
+        A RestaurantOrder is in Pending status and reasonCode is valid
+      when: >
+        Restaurant staff sends a POST request to reject the order
+      then: >
+        An OrderRejected event is published to the restaurant.order-rejected
+        Service Bus topic via the outbox pattern
+    - id: "RST-005-AC-05"
+      given: >
+        A RestaurantOrder is in Pending status and reasonCode is valid
+      when: >
+        Restaurant staff sends a POST request to reject the order
+      then: >
+        HTTP 200 is returned with the updated RestaurantOrder
+  error_scenarios:
+    - id: "RST-005-ERR-01"
+      condition: "No RestaurantOrder found with the given orderId for the given restaurantId"
+      expected_behaviour: "HTTP 404 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+    - id: "RST-005-ERR-02"
+      condition: "RestaurantOrder exists but is not in Pending status (already accepted, rejected, or further along)"
+      expected_behaviour: "HTTP 409 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_PENDING"
+    - id: "RST-005-ERR-03"
+      condition: "reasonCode is not one of the allowed values (RESTAURANT_CLOSED, ITEM_UNAVAILABLE, TOO_BUSY, OTHER)"
+      expected_behaviour: "HTTP 400 returned with error body"
+      error_code: "RESTAURANT_INVALID_REASON"
+  story_dependencies:
+    - story_id: "RST-003-STORY"
+      reason: "A RestaurantOrder must be created in Pending status via OrderPlaced event processing before it can be rejected"
+  story_type: "command"
+  estimated_points: 3
+  ddd_pattern: "aggregate_command"
+  ddd_notes: >
+    Enforces RST-R04 (valid reason codes) and RST-R05 (only from Pending
+    status). Transitions RestaurantOrder aggregate from Pending to Rejected.
+    Raises OrderRejected domain event via outbox pattern. The Orders context
+    consumes this event to transition the order to Rejected status.
+  azure_function: "RejectOrderFunction"
+  trigger_type: "HTTP POST"
+  traceability:
+    fdd_sections:
+      - "4.4 Business Rules (RST-R04, RST-R05)"
+      - "4.5 API Endpoints - POST /restaurants/{restaurantId}/orders/{orderId}/reject"
+      - "4.6 Domain Events Raised - OrderRejected"
+    ac_node_ids:
+      - "RST-005"

@@ -1,0 +1,50 @@
+routing_summary:
+  bounded_context: "Delivery"
+  generated_at: "2026-03-03T00:00:00Z"
+  total_stories: 9
+  routing_breakdown:
+    single_agent: 8
+    single_agent_with_subagents: 1
+    full_swarm: 0
+  estimated_total_points: 23
+  stories_by_routing:
+    single_agent:
+      - story_id: "DLV-001"
+        behaviour_name: "Handle OrderReadyForPickup Event"
+        total_score: 4
+        estimated_complexity: 3
+      - story_id: "DLV-003"
+        behaviour_name: "Update Driver Location"
+        total_score: 4
+        estimated_complexity: 3
+      - story_id: "DLV-004"
+        behaviour_name: "Confirm Pickup"
+        total_score: 2
+        estimated_complexity: 2
+      - story_id: "DLV-005"
+        behaviour_name: "Complete Delivery"
+        total_score: 4
+        estimated_complexity: 3
+      - story_id: "DLV-006"
+        behaviour_name: "Get Delivery Status"
+        total_score: 0
+        estimated_complexity: 1
+      - story_id: "DLV-007"
+        behaviour_name: "Get Estimated Arrival"
+        total_score: 0
+        estimated_complexity: 1
+      - story_id: "DLV-008"
+        behaviour_name: "Unassigned Delivery Monitor"
+        total_score: 2
+        estimated_complexity: 2
+      - story_id: "DLV-009"
+        behaviour_name: "Handle Order Cancelled for Delivery"
+        total_score: 1
+        estimated_complexity: 2
+    single_agent_with_subagents:
+      - story_id: "DLV-002"
+        behaviour_name: "Assign Driver"
+        total_score: 7
+        estimated_complexity: 6
+        override_applied: "domain_logic_depth=2 AND core command -> capped at single_agent_with_subagents"
+    full_swarm: []

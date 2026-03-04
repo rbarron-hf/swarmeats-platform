@@ -1,0 +1,47 @@
+ac_node:
+  id: "RST-004"
+  bounded_context: "Restaurant"
+  aggregate_root: "RestaurantOrder"
+  behaviour_name: "Accept Order"
+  trigger: "HTTP POST /restaurants/{restaurantId}/orders/{orderId}/accept"
+  azure_function: "AcceptOrderFunction"
+  given:
+    - "A RestaurantOrder exists in the restaurant-orders container with the given orderId and restaurantId"
+    - "The RestaurantOrder is in Pending status"
+  when:
+    - "Restaurant staff sends a POST request to /restaurants/{restaurantId}/orders/{orderId}/accept with an estimatedPrepMinutes value"
+  then:
+    - "The estimatedPrepMinutes is validated to be between 5 and 90 inclusive per RST-R03"
+    - "The RestaurantOrder status transitions from Pending to Accepted"
+    - "The acceptedAt timestamp is recorded on the RestaurantOrder"
+    - "An OrderAccepted event is published to the restaurant.order-accepted Service Bus topic via the outbox pattern"
+    - "HTTP 200 is returned with the updated RestaurantOrder"
+  error_conditions:
+    - condition: "No RestaurantOrder found with the given orderId for the given restaurantId"
+      expected: "HTTP 404 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+    - condition: "RestaurantOrder exists but is not in Pending status (already accepted, rejected, or further along)"
+      expected: "HTTP 409 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_PENDING"
+    - condition: "estimatedPrepMinutes is less than 5 or greater than 90"
+      expected: "HTTP 400 returned with error body"
+      error_code: "RESTAURANT_INVALID_PREP_TIME"
+  data_contracts:
+    request_schema: "POST /restaurants/{restaurantId}/orders/{orderId}/accept — { estimatedPrepMinutes: int }"
+    response_schema: "HTTP 200: { orderId: Guid, restaurantId: Guid, status: 'Accepted', estimatedPrepMinutes: int, acceptedAt: DateTimeOffset }"
+    domain_events:
+      - event_name: "OrderAccepted"
+        target: "restaurant.order-accepted"
+        payload_fields:
+          - name: "orderId"
+            type: "Guid"
+          - name: "restaurantId"
+            type: "Guid"
+          - name: "estimatedPrepMinutes"
+            type: "int"
+          - name: "acceptedAt"
+            type: "DateTimeOffset"
+  dependencies: []
+  estimated_complexity: 3
+  story_type: "backend"
+  notes: "Enforces RST-R03 (prep time 5-90 min). State transition Pending -> Accepted. Publishes OrderAccepted event via outbox pattern (transactional batch in Cosmos DB with the aggregate state update). The Orders context consumes this event to transition the order to Accepted status."

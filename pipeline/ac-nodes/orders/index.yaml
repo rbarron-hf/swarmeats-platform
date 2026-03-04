@@ -1,0 +1,70 @@
+ac_node_index:
+  bounded_context: "Orders"
+  generated_at: "2026-03-03T00:00:00Z"
+  total_nodes: 9
+  total_estimated_points: 21
+  nodes:
+    - id: "ORD-001"
+      behaviour_name: "Place Order with valid line items"
+      aggregate_root: "Order"
+      estimated_complexity: 5
+      has_flags: false
+    - id: "ORD-002"
+      behaviour_name: "Cancel Order"
+      aggregate_root: "Order"
+      estimated_complexity: 3
+      has_flags: false
+    - id: "ORD-003"
+      behaviour_name: "Get Order by ID"
+      aggregate_root: "Order"
+      estimated_complexity: 1
+      has_flags: false
+    - id: "ORD-004"
+      behaviour_name: "Get Orders by Customer"
+      aggregate_root: "Order"
+      estimated_complexity: 2
+      has_flags: false
+    - id: "ORD-005"
+      behaviour_name: "Handle OrderAccepted event"
+      aggregate_root: "Order"
+      estimated_complexity: 2
+      has_flags: false
+    - id: "ORD-006"
+      behaviour_name: "Handle OrderRejected event"
+      aggregate_root: "Order"
+      estimated_complexity: 2
+      has_flags: false
+    - id: "ORD-007"
+      behaviour_name: "Handle OrderReadyForPickup event"
+      aggregate_root: "Order"
+      estimated_complexity: 2
+      has_flags: false
+    - id: "ORD-008"
+      behaviour_name: "Handle DriverAssigned event"
+      aggregate_root: "Order"
+      estimated_complexity: 2
+      has_flags: false
+    - id: "ORD-009"
+      behaviour_name: "Handle DeliveryCompleted event"
+      aggregate_root: "Order"
+      estimated_complexity: 2
+      has_flags: false
+  aggregate_coverage:
+    - aggregate: "Order"
+      node_count: 9
+      commands:
+        - "ORD-001"
+        - "ORD-002"
+      queries:
+        - "ORD-003"
+        - "ORD-004"
+      event_handlers:
+        - "ORD-005"
+        - "ORD-006"
+        - "ORD-007"
+        - "ORD-008"
+        - "ORD-009"
+  flag_summary:
+    total_flags: 0
+    blocking_flags: 0
+    ambiguity_flags: 0

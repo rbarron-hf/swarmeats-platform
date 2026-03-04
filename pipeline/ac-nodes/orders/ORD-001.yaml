@@ -1,0 +1,99 @@
+ac_node:
+  id: "ORD-001"
+  bounded_context: "Orders"
+  aggregate_root: "Order"
+  behaviour_name: "Place Order with valid line items"
+  trigger: "HTTP POST /orders"
+  azure_function: "PlaceOrderFunction"
+  given:
+    - "A valid customerId (non-empty Guid) exists"
+    - "A valid restaurantId (non-empty Guid) exists"
+    - "A delivery address with street, city, postcode, latitude, and longitude is provided"
+    - "Between 1 and 20 line items are provided, each with quantity >= 1 and unitPrice > 0.00"
+    - "The sum of (quantity x unitPrice) across all line items is >= GBP 10.00"
+  when:
+    - "POST /orders is called with valid customerId, restaurantId, deliveryAddress, and lineItems"
+  then:
+    - "A new Order aggregate is created with status Placed"
+    - "An order number is generated in format ORD-YYYYMMDD-sequential"
+    - "Order total is calculated as subtotal + GBP 2.99 delivery fee"
+    - "The Order is persisted to Cosmos DB orders container partitioned by customerId"
+    - "An OrderPlaced domain event is published to Service Bus topic orders.placed via the outbox pattern"
+    - "HTTP 201 is returned with orderId, orderNumber, status, and calculated total"
+  error_conditions:
+    - condition: "Order subtotal is below GBP 10.00"
+      expected: "HTTP 400 returned with error"
+      error_code: "ORDER_MINIMUM_NOT_MET"
+    - condition: "More than 20 line items provided"
+      expected: "HTTP 400 returned with error"
+      error_code: "ORDER_TOO_MANY_ITEMS"
+    - condition: "Any line item has quantity < 1 or unitPrice <= 0.00"
+      expected: "HTTP 400 returned with error"
+      error_code: "ORDER_INVALID_LINE_ITEM"
+    - condition: "Delivery address is missing latitude or longitude"
+      expected: "HTTP 400 returned with error"
+      error_code: "ORDER_INVALID_ADDRESS"
+    - condition: "customerId is empty or invalid Guid"
+      expected: "HTTP 400 returned with error"
+      error_code: "ORDER_INVALID_CUSTOMER"
+    - condition: "restaurantId is empty or invalid Guid"
+      expected: "HTTP 400 returned with error"
+      error_code: "ORDER_INVALID_RESTAURANT"
+  data_contracts:
+    request_schema: |
+      {
+        "customerId": "Guid",
+        "restaurantId": "Guid",
+        "deliveryAddress": {
+          "street": "string",
+          "city": "string",
+          "postcode": "string",
+          "latitude": "decimal",
+          "longitude": "decimal"
+        },
+        "lineItems": [
+          {
+            "menuItemId": "Guid",
+            "menuItemName": "string",
+            "quantity": "int",
+            "unitPrice": "decimal"
+          }
+        ]
+      }
+    response_schema: |
+      {
+        "orderId": "Guid",
+        "orderNumber": "string",
+        "status": "string",
+        "orderTotal": "decimal"
+      }
+    domain_events:
+      - event_name: "OrderPlaced"
+        target: "orders.placed"
+        payload_fields:
+          - name: "orderId"
+            type: "Guid"
+          - name: "orderNumber"
+            type: "string"
+          - name: "customerId"
+            type: "Guid"
+          - name: "restaurantId"
+            type: "Guid"
+          - name: "lineItems"
+            type: "array of { menuItemId: Guid, menuItemName: string, quantity: int, unitPrice: decimal }"
+          - name: "deliveryAddress"
+            type: "object { street: string, city: string, postcode: string, latitude: decimal, longitude: decimal }"
+          - name: "orderTotal"
+            type: "decimal"
+          - name: "placedAt"
+            type: "DateTimeOffset"
+  dependencies:
+    - context: "Restaurant"
+      type: "async-downstream"
+      description: "OrderPlaced event consumed by Restaurant context to create a RestaurantOrder"
+    - context: "Delivery"
+      type: "async-downstream"
+      description: "OrderPlaced event indirectly triggers delivery creation via Restaurant context"
+  estimated_complexity: 5
+  story_type: "command"
+  notes: "Primary entry point for the order lifecycle. Validates business rules ORD-R01 through ORD-R04, calculates total per ORD-R06, generates order number per ORD-R07. Uses outbox pattern for reliable event publishing. Cosmos DB partition key is /customerId."

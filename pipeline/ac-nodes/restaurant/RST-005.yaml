@@ -1,0 +1,49 @@
+ac_node:
+  id: "RST-005"
+  bounded_context: "Restaurant"
+  aggregate_root: "RestaurantOrder"
+  behaviour_name: "Reject Order"
+  trigger: "HTTP POST /restaurants/{restaurantId}/orders/{orderId}/reject"
+  azure_function: "RejectOrderFunction"
+  given:
+    - "A RestaurantOrder exists in the restaurant-orders container with the given orderId and restaurantId"
+    - "The RestaurantOrder is in Pending status"
+  when:
+    - "Restaurant staff sends a POST request to /restaurants/{restaurantId}/orders/{orderId}/reject with a reasonCode and optional notes"
+  then:
+    - "The reasonCode is validated to be one of the allowed values: RESTAURANT_CLOSED, ITEM_UNAVAILABLE, TOO_BUSY, OTHER per RST-R04"
+    - "The RestaurantOrder status transitions from Pending to Rejected per RST-R05"
+    - "The rejectedAt timestamp and reasonCode are recorded on the RestaurantOrder"
+    - "An OrderRejected event is published to the restaurant.order-rejected Service Bus topic via the outbox pattern"
+    - "HTTP 200 is returned with the updated RestaurantOrder"
+  error_conditions:
+    - condition: "No RestaurantOrder found with the given orderId for the given restaurantId"
+      expected: "HTTP 404 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+    - condition: "RestaurantOrder exists but is not in Pending status (already accepted, rejected, or further along)"
+      expected: "HTTP 409 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_PENDING"
+    - condition: "reasonCode is not one of the allowed values (RESTAURANT_CLOSED, ITEM_UNAVAILABLE, TOO_BUSY, OTHER)"
+      expected: "HTTP 400 returned with error body"
+      error_code: "RESTAURANT_INVALID_REASON"
+  data_contracts:
+    request_schema: "POST /restaurants/{restaurantId}/orders/{orderId}/reject — { reasonCode: string, notes: string (optional) }"
+    response_schema: "HTTP 200: { orderId: Guid, restaurantId: Guid, status: 'Rejected', reasonCode: string, notes: string, rejectedAt: DateTimeOffset }"
+    domain_events:
+      - event_name: "OrderRejected"
+        target: "restaurant.order-rejected"
+        payload_fields:
+          - name: "orderId"
+            type: "Guid"
+          - name: "restaurantId"
+            type: "Guid"
+          - name: "reasonCode"
+            type: "string"
+          - name: "unavailableItemIds"
+            type: "array of Guid"
+          - name: "rejectedAt"
+            type: "DateTimeOffset"
+  dependencies: []
+  estimated_complexity: 3
+  story_type: "backend"
+  notes: "Enforces RST-R04 (valid reason codes) and RST-R05 (only from Pending status). State transition Pending -> Rejected. For manual staff rejections, unavailableItemIds will typically be empty unless the reason is ITEM_UNAVAILABLE. Publishes OrderRejected event via outbox pattern. The Orders context consumes this event to transition the order to Rejected status."

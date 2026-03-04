@@ -1,0 +1,773 @@
+ubiquitous_language:
+  generated_at: "2026-03-03T00:00:00Z"
+  terms:
+    # ====
+    # ORDERS CONTEXT - Aggregates, Entities, Value Objects
+    # ====
+    - term: "Order"
+      bounded_context: "Orders"
+      definition: "Aggregate root representing a customers food order. Owns the full order lifecycle from placement through final delivery confirmation. Contains line items, delivery address, and order total. Identified by a unique orderId (Guid) and a human-readable order number in format ORD-YYYYMMDD-sequential."
+      dotnet_type: "class"
+      dotnet_namespace: "Orders.Domain.Aggregates"
+      aliases:
+        - "CustomerOrder"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "OrderLineItem"
+      bounded_context: "Orders"
+      definition: "Entity representing one item in an order. References a menu item ID, menu item name, quantity (must be >= 1), and unit price (must be > 0.00). Maximum of 20 per order."
+      dotnet_type: "class"
+      dotnet_namespace: "Orders.Domain.Entities"
+      aliases:
+        - "LineItem"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "DeliveryAddress"
+      bounded_context: "Orders"
+      definition: "Value object for the customers delivery location. Contains street, city, postcode, latitude, and longitude. Latitude and longitude are required (ORD-R04)."
+      dotnet_type: "record"
+      dotnet_namespace: "Orders.Domain.ValueObjects"
+      aliases:
+        - "Address"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "OrderTotal"
+      bounded_context: "Orders"
+      definition: "Value object for the orders financial summary: subtotal, delivery fee (fixed 2.99 GBP), and total. Minimum subtotal is 10.00 GBP (ORD-R01)."
+      dotnet_type: "record"
+      dotnet_namespace: "Orders.Domain.ValueObjects"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # ORDERS CONTEXT - Order Statuses
+    # ====
+    - term: "OrderStatus"
+      bounded_context: "Orders"
+      definition: "Enumeration of all possible states in the Order aggregate lifecycle: Draft, Placed, Accepted, Preparing, ReadyForPickup, InDelivery, Delivered, Rejected, Cancelled."
+      dotnet_type: "enum"
+      dotnet_namespace: "Orders.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "Draft"
+      bounded_context: "Orders"
+      definition: "Initial status of an Order before the customer submits it. Transitions to Placed."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Orders.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "Placed"
+      bounded_context: "Orders"
+      definition: "Status indicating the customer has submitted the order. Can transition to Accepted, Rejected, or Cancelled."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Orders.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "Accepted"
+      bounded_context: "Orders"
+      definition: "Status indicating the restaurant has accepted the order. Transitions to Preparing."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Orders.Domain.Enums"
+      aliases: []
+      ambiguity_flag: true
+      ambiguity_notes: "Also exists as a RestaurantOrder status in the Restaurant context."
+
+    - term: "Preparing"
+      bounded_context: "Orders"
+      definition: "Status indicating the restaurant is actively preparing the food. Transitions to ReadyForPickup."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Orders.Domain.Enums"
+      aliases: []
+      ambiguity_flag: true
+      ambiguity_notes: "Also exists as a RestaurantOrder status in the Restaurant context."
+
+    - term: "ReadyForPickup"
+      bounded_context: "Orders"
+      definition: "Status indicating the food is ready and awaiting driver pickup. Transitions to InDelivery."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Orders.Domain.Enums"
+      aliases: []
+      ambiguity_flag: true
+      ambiguity_notes: "Also exists as a RestaurantOrder status in the Restaurant context."
+
+    - term: "InDelivery"
+      bounded_context: "Orders"
+      definition: "Status indicating a driver has picked up the food and is en route. Transitions to Delivered."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Orders.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "Delivered"
+      bounded_context: "Orders"
+      definition: "Terminal status indicating the order has been successfully delivered to the customer."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Orders.Domain.Enums"
+      aliases: []
+      ambiguity_flag: true
+      ambiguity_notes: "Also exists as a Delivery status in the Delivery context."
+
+    - term: "Rejected"
+      bounded_context: "Orders"
+      definition: "Terminal status indicating the restaurant has rejected the order."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Orders.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "Cancelled"
+      bounded_context: "Orders"
+      definition: "Terminal status indicating the customer has cancelled the order. Only possible from Placed state (ORD-R05)."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Orders.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # ORDERS CONTEXT - Commands
+    # ====
+    - term: "PlaceOrder"
+      bounded_context: "Orders"
+      definition: "Command to create a new order. Validates business rules ORD-R01 through ORD-R04, calculates order total (ORD-R06), generates order number (ORD-R07), and raises OrderPlaced event. POST /orders."
+      dotnet_type: "record"
+      dotnet_namespace: "Orders.Domain.Commands"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "CancelOrder"
+      bounded_context: "Orders"
+      definition: "Command to cancel an existing order. Only permitted while status is Placed (ORD-R05). Raises OrderCancelled event. POST /orders/{orderId}/cancel."
+      dotnet_type: "record"
+      dotnet_namespace: "Orders.Domain.Commands"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # ORDERS CONTEXT - Queries
+    # ====
+    - term: "GetOrder"
+      bounded_context: "Orders"
+      definition: "Query to retrieve the full order including line items, status, and timestamps. GET /orders/{orderId}."
+      dotnet_type: "record"
+      dotnet_namespace: "Orders.Domain.Queries"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "GetOrdersByCustomer"
+      bounded_context: "Orders"
+      definition: "Query to retrieve all orders for a customer, sorted by creation date descending with pagination. GET /orders?customerId={customerId}."
+      dotnet_type: "record"
+      dotnet_namespace: "Orders.Domain.Queries"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # ORDERS CONTEXT - Domain Events
+    # ====
+    - term: "OrderPlaced"
+      bounded_context: "Orders"
+      definition: "Domain event published to topic orders.placed when a customer places an order. Payload: orderId, orderNumber, customerId, restaurantId, lineItems, deliveryAddress, orderTotal, placedAt."
+      dotnet_type: "record"
+      dotnet_namespace: "Orders.Domain.Events"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "OrderCancelled"
+      bounded_context: "Orders"
+      definition: "Domain event published to topic orders.cancelled when a customer cancels an order. Payload: orderId, orderNumber, restaurantId, cancelledAt. Consumed by Restaurant and Delivery contexts."
+      dotnet_type: "record"
+      dotnet_namespace: "Orders.Domain.Events"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # RESTAURANT CONTEXT - Aggregates, Entities, Value Objects
+    # ====
+    - term: "Menu"
+      bounded_context: "Restaurant"
+      definition: "Aggregate root representing a restaurants active menu. One active menu per restaurant. Contains menu items, operating hours (openingTime/closingTime UTC), and availability."
+      dotnet_type: "class"
+      dotnet_namespace: "Restaurant.Domain.Aggregates"
+      aliases:
+        - "RestaurantMenu"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "MenuItem"
+      bounded_context: "Restaurant"
+      definition: "Entity representing a single menu item. Contains name, description, price, category, and availability flag. Price > 0.00 GBP, prep time >= 1 min (RST-R06)."
+      dotnet_type: "class"
+      dotnet_namespace: "Restaurant.Domain.Entities"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "Price"
+      bounded_context: "Restaurant"
+      definition: "Value object for monetary amount with currency. Contains amount (decimal) and currency (string, always GBP). Amount must be > 0.00."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.ValueObjects"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "PreparationTime"
+      bounded_context: "Restaurant"
+      definition: "Value object for estimated preparation time in minutes. Must be >= 1 minute (RST-R06)."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.ValueObjects"
+      aliases:
+        - "EstimatedPrepTime"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "RestaurantOrder"
+      bounded_context: "Restaurant"
+      definition: "Aggregate root for the Restaurant contexts local representation of an incoming order. Created from OrderPlaced event. State machine: Pending, Accepted, Preparing, ReadyForPickup, Rejected."
+      dotnet_type: "class"
+      dotnet_namespace: "Restaurant.Domain.Aggregates"
+      aliases: []
+      ambiguity_flag: true
+      ambiguity_notes: "Distinct from Order in Orders context. Local projection with its own lifecycle."
+
+    # ====
+    # RESTAURANT CONTEXT - RestaurantOrder Statuses
+    # ====
+    - term: "RestaurantOrderStatus"
+      bounded_context: "Restaurant"
+      definition: "Enumeration of RestaurantOrder states: Pending, Accepted, Preparing, ReadyForPickup, Rejected."
+      dotnet_type: "enum"
+      dotnet_namespace: "Restaurant.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "Pending"
+      bounded_context: "Restaurant"
+      definition: "Initial status of RestaurantOrder. Awaiting staff review. Can transition to Accepted or Rejected. May be auto-rejected on validation failure."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Restaurant.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "Accepted (RestaurantOrder)"
+      bounded_context: "Restaurant"
+      definition: "Staff accepted the order with estimated prep time (5-90 min per RST-R03). Transitions to Preparing. Cannot be rejected once accepted."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Restaurant.Domain.Enums"
+      aliases: []
+      ambiguity_flag: true
+      ambiguity_notes: "Shares name with Orders context OrderStatus."
+
+    - term: "Preparing (RestaurantOrder)"
+      bounded_context: "Restaurant"
+      definition: "Staff have begun food preparation. Transitions to ReadyForPickup."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Restaurant.Domain.Enums"
+      aliases: []
+      ambiguity_flag: true
+      ambiguity_notes: "Shares name with Orders context OrderStatus."
+
+    - term: "ReadyForPickup (RestaurantOrder)"
+      bounded_context: "Restaurant"
+      definition: "Terminal success status. Food ready for driver pickup. Triggers OrderReadyForPickup event."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Restaurant.Domain.Enums"
+      aliases: []
+      ambiguity_flag: true
+      ambiguity_notes: "Shares name with Orders context OrderStatus."
+
+    - term: "Rejected (RestaurantOrder)"
+      bounded_context: "Restaurant"
+      definition: "Terminal status. Order rejected by staff or auto-rejected. Must include reason code."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Restaurant.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # RESTAURANT CONTEXT - Rejection Reason Codes
+    # ====
+    - term: "RejectionReasonCode"
+      bounded_context: "Restaurant"
+      definition: "Enumeration of rejection reason codes: RESTAURANT_CLOSED, ITEM_UNAVAILABLE, TOO_BUSY, OTHER. Required on reject (RST-R04)."
+      dotnet_type: "enum"
+      dotnet_namespace: "Restaurant.Domain.Enums"
+      aliases:
+        - "ReasonCode"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "RESTAURANT_CLOSED"
+      bounded_context: "Restaurant"
+      definition: "Rejection reason: restaurant outside operating hours. Auto-applied per RST-R01."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Restaurant.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "ITEM_UNAVAILABLE"
+      bounded_context: "Restaurant"
+      definition: "Rejection reason: menu items not available. Auto-applied per RST-R02. Includes unavailable item IDs."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Restaurant.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "TOO_BUSY"
+      bounded_context: "Restaurant"
+      definition: "Rejection reason: restaurant too busy. Set manually by staff."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Restaurant.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "OTHER"
+      bounded_context: "Restaurant"
+      definition: "Rejection reason: other. Set manually by staff, typically with notes."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Restaurant.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # RESTAURANT CONTEXT - Commands
+    # ====
+    - term: "AcceptOrder"
+      bounded_context: "Restaurant"
+      definition: "Command to accept an incoming order. Requires prep time 5-90 min (RST-R03). Pending to Accepted. Raises OrderAccepted. POST /restaurants/{restaurantId}/orders/{orderId}/accept."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.Commands"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "RejectOrder"
+      bounded_context: "Restaurant"
+      definition: "Command to reject an incoming order. Requires reason code (RST-R04). Only from Pending (RST-R05). Raises OrderRejected. POST /restaurants/{restaurantId}/orders/{orderId}/reject."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.Commands"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "MarkPreparing"
+      bounded_context: "Restaurant"
+      definition: "Command to start food preparation. Accepted to Preparing. PUT /restaurants/{restaurantId}/orders/{orderId}/status."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.Commands"
+      aliases:
+        - "StartPreparing"
+        - "BeginPreparation"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "MarkReadyForPickup"
+      bounded_context: "Restaurant"
+      definition: "Command to signal food ready for pickup. Preparing to ReadyForPickup. Raises OrderReadyForPickup. PUT /restaurants/{restaurantId}/orders/{orderId}/status."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.Commands"
+      aliases:
+        - "SignalReadyForPickup"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # RESTAURANT CONTEXT - Queries
+    # ====
+    - term: "GetMenu"
+      bounded_context: "Restaurant"
+      definition: "Query for full restaurant menu including items, availability, and operating hours. GET /restaurants/{restaurantId}/menu."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.Queries"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "GetActiveOrders"
+      bounded_context: "Restaurant"
+      definition: "Query for restaurant orders filtered by status. Used by dashboard. GET /restaurants/{restaurantId}/orders?status={status}."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.Queries"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # RESTAURANT CONTEXT - Domain Events
+    # ====
+    - term: "OrderAccepted"
+      bounded_context: "Restaurant"
+      definition: "Event on topic restaurant.order-accepted. Payload: orderId, restaurantId, estimatedPrepMinutes, acceptedAt. Consumed by Orders context."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.Events"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "OrderRejected"
+      bounded_context: "Restaurant"
+      definition: "Event on topic restaurant.order-rejected. Payload: orderId, restaurantId, reasonCode, unavailableItemIds, rejectedAt. Consumed by Orders context."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.Events"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "OrderReadyForPickup"
+      bounded_context: "Restaurant"
+      definition: "Event on topic restaurant.order-ready. Payload: orderId, restaurantId, restaurantAddress, readyAt. Consumed by Delivery and Orders contexts."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.Events"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # DELIVERY CONTEXT - Aggregates, Value Objects
+    # ====
+    - term: "Delivery"
+      bounded_context: "Delivery"
+      definition: "Aggregate root for driver delivery tracking. Created from OrderReadyForPickup event. States: AwaitingDriver, DriverAssigned, PickedUp, Delivered."
+      dotnet_type: "class"
+      dotnet_namespace: "Delivery.Domain.Aggregates"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "DriverLocation"
+      bounded_context: "Delivery"
+      definition: "Value object for a drivers geographic position. Contains latitude, longitude, and recorded timestamp. Updated via location pings."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.ValueObjects"
+      aliases:
+        - "LocationPing"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "Route"
+      bounded_context: "Delivery"
+      definition: "Value object for the delivery route. Contains restaurant address (pickup) and customer delivery address (dropoff)."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.ValueObjects"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "EstimatedArrival"
+      bounded_context: "Delivery"
+      definition: "Value object for estimated arrival time at customer address. Updated with each driver location ping. Used for 45-min SLA monitoring (DLV-R03)."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.ValueObjects"
+      aliases:
+        - "ETA"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # DELIVERY CONTEXT - Delivery Statuses
+    # ====
+    - term: "DeliveryStatus"
+      bounded_context: "Delivery"
+      definition: "Enumeration of Delivery states: AwaitingDriver, DriverAssigned, PickedUp, Delivered."
+      dotnet_type: "enum"
+      dotnet_namespace: "Delivery.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "AwaitingDriver"
+      bounded_context: "Delivery"
+      definition: "Initial status. Waiting for driver assignment. Uses sentinel partition key unassigned in Cosmos DB."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Delivery.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "DriverAssigned (DeliveryStatus)"
+      bounded_context: "Delivery"
+      definition: "Driver assigned. Must be within 5km (DLV-R02) and have no active deliveries (DLV-R01). Transitions to PickedUp."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Delivery.Domain.Enums"
+      aliases: []
+      ambiguity_flag: true
+      ambiguity_notes: "Also a domain event name. As status it describes state; as event it notifies contexts."
+
+    - term: "PickedUp"
+      bounded_context: "Delivery"
+      definition: "Driver confirmed food pickup from restaurant. Transitions to Delivered. Location updates accepted."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Delivery.Domain.Enums"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "Delivered (DeliveryStatus)"
+      bounded_context: "Delivery"
+      definition: "Terminal status. Driver confirmed delivery to customer. Only from PickedUp (DLV-R05)."
+      dotnet_type: "enum_value"
+      dotnet_namespace: "Delivery.Domain.Enums"
+      aliases: []
+      ambiguity_flag: true
+      ambiguity_notes: "Shares name with Orders context OrderStatus."
+
+    # ====
+    # DELIVERY CONTEXT - Commands
+    # ====
+    - term: "AssignDriver"
+      bounded_context: "Delivery"
+      definition: "Command to assign driver to delivery. Validates AwaitingDriver status, no active deliveries (DLV-R01), within 5km Haversine (DLV-R02). Raises DriverAssigned event. POST /deliveries/{deliveryId}/assign."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.Commands"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "UpdateDriverLocation"
+      bounded_context: "Delivery"
+      definition: "Command for driver location ping. Requires lat, lon, timestamp. Only for DriverAssigned or PickedUp (DLV-R04). PUT /deliveries/{deliveryId}/location."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.Commands"
+      aliases:
+        - "LocationUpdate"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "ConfirmPickup"
+      bounded_context: "Delivery"
+      definition: "Command for driver to confirm food pickup. Validates DriverAssigned status and driver ID. POST /deliveries/{deliveryId}/pickup."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.Commands"
+      aliases:
+        - "PickupOrder"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "CompleteDelivery"
+      bounded_context: "Delivery"
+      definition: "Command for driver to confirm delivery. Validates PickedUp status (DLV-R05). Raises DeliveryCompleted event. POST /deliveries/{deliveryId}/complete."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.Commands"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # DELIVERY CONTEXT - Queries
+    # ====
+    - term: "GetDeliveryStatus"
+      bounded_context: "Delivery"
+      definition: "Query for full delivery details: status, driver location, route, estimated arrival. GET /deliveries/{deliveryId}."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.Queries"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "GetEstimatedArrival"
+      bounded_context: "Delivery"
+      definition: "Query for current ETA based on drivers last known location. GET /deliveries/{deliveryId}/eta."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.Queries"
+      aliases:
+        - "GetETA"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # DELIVERY CONTEXT - Domain Events
+    # ====
+    - term: "DriverAssigned (Event)"
+      bounded_context: "Delivery"
+      definition: "Event on topic delivery.driver-assigned. Payload: deliveryId, orderId, driverId, estimatedArrivalMinutes, assignedAt. Consumed by Orders context."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.Events"
+      aliases: []
+      ambiguity_flag: true
+      ambiguity_notes: "Also a delivery status enum value."
+
+    - term: "DeliveryCompleted"
+      bounded_context: "Delivery"
+      definition: "Event on topic delivery.completed. Payload: deliveryId, orderId, driverId, deliveredAt, totalDeliveryMinutes, slaBreached. Consumed by Orders context."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.Events"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    # ====
+    # CROSS-CUTTING - Shared and Integration Concepts
+    # ====
+    - term: "DomainEvent"
+      bounded_context: "Orders"
+      definition: "Base envelope for inter-context events on Azure Service Bus. Contains eventType, eventId (Guid), occurredAt, sourceContext, and payload. Handlers must be idempotent using eventId."
+      dotnet_type: "abstract record"
+      dotnet_namespace: "Orders.Domain.Events"
+      aliases:
+        - "IntegrationEvent"
+        - "EventEnvelope"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "DomainEvent"
+      bounded_context: "Restaurant"
+      definition: "Base envelope for inter-context events on Azure Service Bus. Contains eventType, eventId, occurredAt, sourceContext, and payload. Handlers must be idempotent."
+      dotnet_type: "abstract record"
+      dotnet_namespace: "Restaurant.Domain.Events"
+      aliases:
+        - "IntegrationEvent"
+        - "EventEnvelope"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "DomainEvent"
+      bounded_context: "Delivery"
+      definition: "Base envelope for inter-context events on Azure Service Bus. Contains eventType, eventId, occurredAt, sourceContext, and payload. Handlers must be idempotent."
+      dotnet_type: "abstract record"
+      dotnet_namespace: "Delivery.Domain.Events"
+      aliases:
+        - "IntegrationEvent"
+        - "EventEnvelope"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "OutboxMessage"
+      bounded_context: "Orders"
+      definition: "Reliable event publishing via outbox pattern. Events persisted atomically with aggregate state in Cosmos DB transactional batch. Stored in orders-outbox, partition key /orderId, 7-day TTL."
+      dotnet_type: "class"
+      dotnet_namespace: "Orders.Domain.Infrastructure"
+      aliases:
+        - "OutboxEvent"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "OutboxMessage"
+      bounded_context: "Restaurant"
+      definition: "Reliable event publishing via outbox pattern. Stored in restaurant-outbox, partition key /restaurantId, 7-day TTL."
+      dotnet_type: "class"
+      dotnet_namespace: "Restaurant.Domain.Infrastructure"
+      aliases:
+        - "OutboxEvent"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "OutboxMessage"
+      bounded_context: "Delivery"
+      definition: "Reliable event publishing via outbox pattern. Stored in deliveries-outbox, partition key /deliveryId, 7-day TTL."
+      dotnet_type: "class"
+      dotnet_namespace: "Delivery.Domain.Infrastructure"
+      aliases:
+        - "OutboxEvent"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "CustomerId"
+      bounded_context: "Orders"
+      definition: "Guid identifier for a customer. Cosmos DB partition key for orders container. Validated non-empty on PlaceOrder."
+      dotnet_type: "record"
+      dotnet_namespace: "Orders.Domain.ValueObjects"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "RestaurantId"
+      bounded_context: "Restaurant"
+      definition: "Guid identifier for a restaurant. Cosmos DB partition key for menus and restaurant-orders containers."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.ValueObjects"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "DriverId"
+      bounded_context: "Delivery"
+      definition: "Guid identifier for a delivery driver. Cosmos DB partition key for deliveries container. One active delivery at a time (DLV-R01)."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.ValueObjects"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "OrderNumber"
+      bounded_context: "Orders"
+      definition: "Human-readable order identifier in format ORD-YYYYMMDD-sequential. Generated on PlaceOrder per ORD-R07."
+      dotnet_type: "record"
+      dotnet_namespace: "Orders.Domain.ValueObjects"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "DeliveryFee"
+      bounded_context: "Orders"
+      definition: "Fixed fee of 2.99 GBP added to every order. Part of OrderTotal calculation per ORD-R06."
+      dotnet_type: "record"
+      dotnet_namespace: "Orders.Domain.ValueObjects"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "RestaurantAddress"
+      bounded_context: "Restaurant"
+      definition: "Value object for restaurant physical location. Contains street, city, postcode, latitude, longitude. Included in OrderReadyForPickup event and used as Route pickup point."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.ValueObjects"
+      aliases: []
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "OperatingHours"
+      bounded_context: "Restaurant"
+      definition: "Value object for restaurant operating window (openingTime/closingTime UTC) on Menu aggregate. Used for RST-R01 validation. Outside hours triggers auto-reject RESTAURANT_CLOSED."
+      dotnet_type: "record"
+      dotnet_namespace: "Restaurant.Domain.ValueObjects"
+      aliases:
+        - "OpeningHours"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "DeliveryTimeSLA"
+      bounded_context: "Delivery"
+      definition: "45-minute SLA from OrderReadyForPickup to Delivered (DLV-R03). Informational, not hard-enforced. Breaches tracked via slaBreached on DeliveryCompleted event."
+      dotnet_type: "record"
+      dotnet_namespace: "Delivery.Domain.ValueObjects"
+      aliases:
+        - "SLA"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+
+    - term: "HaversineDistance"
+      bounded_context: "Delivery"
+      definition: "Straight-line distance calculation between driver location and restaurant coordinates. Enforces 5km max for driver assignment (DLV-R02)."
+      dotnet_type: "static class"
+      dotnet_namespace: "Delivery.Domain.Services"
+      aliases:
+        - "DistanceCalculator"
+      ambiguity_flag: false
+      ambiguity_notes: ""
+

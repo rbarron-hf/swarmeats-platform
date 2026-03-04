@@ -1,0 +1,29 @@
+ac_node:
+  id: "RST-009"
+  bounded_context: "Restaurant"
+  aggregate_root: "RestaurantOrder"
+  behaviour_name: "Active Order Dashboard Projection"
+  trigger: "Cosmos DB Change Feed on restaurant-orders container (lease container: restaurant-orders-leases)"
+  azure_function: "ActiveOrderDashboardFunction"
+  given:
+    - "The restaurant-orders Cosmos DB container has a change feed enabled"
+    - "A RestaurantOrder document has been created or updated in the restaurant-orders container"
+  when:
+    - "The Cosmos DB Change Feed fires with one or more changed documents from the restaurant-orders container"
+  then:
+    - "For each changed document, a read-optimised view is updated for the restaurant dashboard"
+    - "The projection includes the current order status, line item summaries, timestamps, and restaurant identifier"
+    - "The dashboard projection is optimised for fast queries by restaurant staff (low-latency reads)"
+    - "No domain events are raised — this is a query-side CQRS projection for performance"
+  error_conditions:
+    - condition: "Change feed processing fails (transient Cosmos DB error)"
+      expected: "Change feed retries automatically from the last checkpoint via the lease container"
+      error_code: "CHANGE_FEED_TRANSIENT_ERROR"
+  data_contracts:
+    request_schema: "Cosmos DB Change Feed trigger — input is an array of changed RestaurantOrder documents from the restaurant-orders container"
+    response_schema: "No HTTP response (Change Feed trigger). Side effects: read-optimised dashboard view updated in Cosmos DB."
+    domain_events: []
+  dependencies: []
+  estimated_complexity: 3
+  story_type: "infrastructure"
+  notes: "This is a CQRS read-side projection. The Change Feed trigger monitors the restaurant-orders container and updates a denormalised view optimised for the restaurant dashboard queries (GetActiveOrdersFunction / RST-002). The lease container restaurant-orders-leases tracks the Change Feed checkpoint position. This function does not produce domain events and is purely for query performance optimisation. The database is 'swarmeats' per the function topology."

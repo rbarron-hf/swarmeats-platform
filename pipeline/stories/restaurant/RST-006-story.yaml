@@ -1,0 +1,72 @@
+story:
+  id: "RST-006-STORY"
+  ac_node_ref: "RST-006"
+  bounded_context: "Restaurant"
+  epic: "Restaurant Order Management"
+  feature: "Preparation Tracking"
+  title: "Mark an accepted order as Preparing"
+  user_story: >
+    As restaurant staff, I want to mark an accepted order as Preparing so that
+    the kitchen workflow is tracked and the order dashboard reflects the
+    current preparation state.
+  acceptance_criteria:
+    - id: "RST-006-AC-01"
+      given: >
+        A RestaurantOrder exists in the restaurant-orders container with the
+        given orderId and restaurantId and the RestaurantOrder is in Accepted
+        status
+      when: >
+        Restaurant staff sends a PUT request to
+        /restaurants/{restaurantId}/orders/{orderId}/status with status
+        'Preparing'
+      then: >
+        The RestaurantOrder status transitions from Accepted to Preparing
+    - id: "RST-006-AC-02"
+      given: >
+        A RestaurantOrder is in Accepted status
+      when: >
+        Restaurant staff sends a PUT request with status 'Preparing'
+      then: >
+        The status update timestamp is recorded on the RestaurantOrder
+    - id: "RST-006-AC-03"
+      given: >
+        A RestaurantOrder is in Accepted status
+      when: >
+        Restaurant staff sends a PUT request with status 'Preparing'
+      then: >
+        HTTP 200 is returned with the updated RestaurantOrder
+    - id: "RST-006-AC-04"
+      given: >
+        A RestaurantOrder is in Accepted status
+      when: >
+        Restaurant staff sends a PUT request with status 'Preparing'
+      then: >
+        No domain event is raised for this transition (only ReadyForPickup
+        raises an event)
+  error_scenarios:
+    - id: "RST-006-ERR-01"
+      condition: "No RestaurantOrder found with the given orderId for the given restaurantId"
+      expected_behaviour: "HTTP 404 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+    - id: "RST-006-ERR-02"
+      condition: "RestaurantOrder exists but is not in Accepted status (invalid transition per state machine: Accepted -> Preparing)"
+      expected_behaviour: "HTTP 409 returned with error body"
+      error_code: "RESTAURANT_INVALID_TRANSITION"
+  story_dependencies:
+    - story_id: "RST-004-STORY"
+      reason: "The RestaurantOrder must be in Accepted status, which requires the AcceptOrder command to have been executed"
+  story_type: "command"
+  estimated_points: 2
+  ddd_pattern: "aggregate_command"
+  ddd_notes: >
+    Shares the UpdatePreparationStatusFunction Azure Function with RST-007.
+    The function inspects the requested status value to determine the
+    transition. This transition (Accepted -> Preparing) does not raise a
+    domain event. Internal state tracking only.
+  azure_function: "UpdatePreparationStatusFunction"
+  trigger_type: "HTTP PUT"
+  traceability:
+    fdd_sections:
+      - "4.5 API Endpoints - PUT /restaurants/{restaurantId}/orders/{orderId}/status"
+    ac_node_ids:
+      - "RST-006"

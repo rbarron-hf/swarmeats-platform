@@ -1,0 +1,35 @@
+ac_node:
+  id: "DLV-009"
+  bounded_context: "Delivery"
+  aggregate_root: "Delivery"
+  behaviour_name: "Handle Order Cancelled for Delivery"
+  trigger: "ServiceBus topic: orders.cancelled, subscription: delivery-context"
+  azure_function: "HandleOrderCancelledDeliveryFunction"
+  given:
+    - "An OrderCancelled event is received from the Orders context"
+    - "The event payload contains orderId, orderNumber, restaurantId, and cancelledAt timestamp"
+    - "A delivery may or may not exist for this orderId"
+  when:
+    - "The event is processed by HandleOrderCancelledDeliveryFunction"
+  then:
+    - "If a delivery exists for this orderId and is in AwaitingDriver status, the delivery is cancelled (status set to Cancelled and document updated)"
+    - "If a delivery exists for this orderId and a driver is already assigned (DriverAssigned status) or has picked up (PickedUp status), a warning is logged indicating the driver should be notified out of band"
+    - "If no delivery exists for this orderId, the event is silently discarded (the order may have been cancelled before food was ready)"
+  error_conditions:
+    - condition: "Duplicate event (eventId already processed)"
+      expected: "Event is silently discarded (idempotent handling)"
+      error_code: "N/A"
+  data_contracts:
+    request_schema: "OrderCancelled event envelope: { eventType: string, eventId: Guid, occurredAt: DateTimeOffset, sourceContext: string, payload: { orderId: Guid, orderNumber: string, restaurantId: Guid, cancelledAt: DateTimeOffset } }"
+    response_schema: "N/A (event handler, no HTTP response)"
+    domain_events:
+      - event_name: ""
+        target: ""
+        payload_fields: []
+  dependencies:
+    - context: "Orders"
+      type: "event_subscription"
+      description: "Subscribes to OrderCancelled events on topic orders.cancelled to cancel deliveries that are still awaiting a driver or to log warnings for in-progress deliveries."
+  estimated_complexity: 2
+  story_type: "integration"
+  notes: "The delivery lookup is by orderId, not deliveryId. This requires querying across partitions or maintaining an orderId-to-deliveryId mapping. If the delivery is already in DriverAssigned or PickedUp status, the function does not cancel it — driver notification is handled out of band (e.g., push notification). No domain events are raised by this handler."

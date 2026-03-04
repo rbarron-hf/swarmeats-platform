@@ -1,0 +1,59 @@
+review:
+  story_id: "ORD-002"
+  bounded_context: "Orders"
+  reviewer: "Layer 6 Review"
+  reviewed_at: "2026-03-03T19:00:00Z"
+  pr_files_reviewed: 13
+
+findings:
+  - id: "REV-001"
+    category: "ddd_compliance"
+    severity: "must_fix"
+    file: "src/Orders/Domain/Aggregates/Order.cs"
+    line_range: "139-145"
+    description: >
+      OrderLineItem is declared as a mutable class with public setters on all properties
+      (MenuItemId, MenuItemName, Quantity, UnitPrice). This violates aggregate encapsulation --
+      any external code can modify line item data after creation, bypassing the Order aggregate's
+      invariant protection. Since OrderLineItem has no independent identity lifecycle outside the
+      order, it should be modelled as a value object (C# record with init-only properties) or
+      at minimum have private setters with a constructor that enforces valid state.
+    suggested_fix: >
+      Convert OrderLineItem to a record or make all setters private and add a constructor
+      that validates quantity >= 1 and unitPrice > 0.00 per the FDD business rules.
+
+  - id: "REV-002"
+    category: "ddd_compliance"
+    severity: "should_fix"
+    file: "src/Orders/Infrastructure/Repositories/CosmosOrderRepository.cs"
+    line_range: "105-118"
+    description: >
+      OutboxMessage is an infrastructure model declared inside CosmosOrderRepository.cs as an
+      internal sealed class. This couples the outbox data model to a single repository file.
+      When the Order outbox processor (Cosmos Change Feed function) needs to read these messages,
+      it will need access to this class but can't reach it from another file without violating
+      the single-responsibility principle. Similarly, ErrorResponse DTO is declared inside
+      CancelOrderFunction.cs (lines 92-96) and will be duplicated when PlaceOrder (ORD-001)
+      and GetOrder (ORD-003) functions are implemented in later rounds.
+    suggested_fix: >
+      Extract OutboxMessage to its own file at Infrastructure/Models/OutboxMessage.cs.
+      Extract ErrorResponse to Functions/Models/ErrorResponse.cs (or a shared ApiModels file).
+
+  - id: "REV-003"
+    category: "test_honesty"
+    severity: "should_fix"
+    file: "tests/Orders.Tests/Unit/ORD002Tests.cs"
+    line_range: "119-154"
+    description: >
+      The two rejection tests (CancelOrder_WhenStatusIsAccepted and CancelOrder_WhenStatusIsDelivered)
+      only assert that the correct exception is thrown. They do not verify that the aggregate
+      state remains completely unmodified after the failed cancellation -- specifically that
+      CancelledAt is still null and DomainEvents is still empty. Without these assertions,
+      a future refactoring could introduce a bug where the aggregate partially mutates before
+      throwing (e.g., sets CancelledAt then throws), and the test would still pass. This is
+      a test honesty gap -- the tests must prove that a failed Cancel() has zero side effects.
+    suggested_fix: >
+      After the exception assertion, add explicit checks:
+      order.CancelledAt.Should().BeNull();
+      order.DomainEvents.Should().BeEmpty();
+      order.Status.Should().Be(OrderStatus.Accepted); // or Delivered

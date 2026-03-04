@@ -1,0 +1,182 @@
+story_index:
+  bounded_context: "Delivery"
+  generated_at: "2026-03-03T00:00:00Z"
+  total_stories: 9
+  total_estimated_points: 23
+
+  stories:
+    - id: "DLV-001-STORY"
+      ac_node_ref: "DLV-001"
+      title: "Handle OrderReadyForPickup event to create a new delivery"
+      story_type: "event-handler"
+      ddd_pattern: "domain_event_handler"
+      estimated_points: 3
+      azure_function: "HandleOrderReadyForPickupFunction"
+      trigger_type: "ServiceBus Topic"
+
+    - id: "DLV-002-STORY"
+      ac_node_ref: "DLV-002"
+      title: "Assign an available driver to a delivery"
+      story_type: "command"
+      ddd_pattern: "aggregate_command"
+      estimated_points: 6
+      azure_function: "AssignDriverFunction"
+      trigger_type: "HTTP POST"
+
+    - id: "DLV-003-STORY"
+      ac_node_ref: "DLV-003"
+      title: "Update driver location during active delivery"
+      story_type: "command"
+      ddd_pattern: "aggregate_command"
+      estimated_points: 3
+      azure_function: "UpdateDriverLocationFunction"
+      trigger_type: "HTTP PUT"
+
+    - id: "DLV-004-STORY"
+      ac_node_ref: "DLV-004"
+      title: "Confirm food pickup from the restaurant"
+      story_type: "command"
+      ddd_pattern: "aggregate_command"
+      estimated_points: 2
+      azure_function: "ConfirmPickupFunction"
+      trigger_type: "HTTP POST"
+
+    - id: "DLV-005-STORY"
+      ac_node_ref: "DLV-005"
+      title: "Complete delivery and calculate SLA compliance"
+      story_type: "command"
+      ddd_pattern: "aggregate_command"
+      estimated_points: 3
+      azure_function: "CompleteDeliveryFunction"
+      trigger_type: "HTTP POST"
+
+    - id: "DLV-006-STORY"
+      ac_node_ref: "DLV-006"
+      title: "Retrieve full delivery status and details"
+      story_type: "query"
+      ddd_pattern: "query_handler"
+      estimated_points: 1
+      azure_function: "GetDeliveryStatusFunction"
+      trigger_type: "HTTP GET"
+
+    - id: "DLV-007-STORY"
+      ac_node_ref: "DLV-007"
+      title: "Retrieve estimated arrival time for a delivery"
+      story_type: "query"
+      ddd_pattern: "query_handler"
+      estimated_points: 1
+      azure_function: "GetEstimatedArrivalFunction"
+      trigger_type: "HTTP GET"
+
+    - id: "DLV-008-STORY"
+      ac_node_ref: "DLV-008"
+      title: "Monitor unassigned deliveries exceeding wait threshold"
+      story_type: "infrastructure"
+      ddd_pattern: "monitoring"
+      estimated_points: 2
+      azure_function: "UnassignedDeliveryCheckFunction"
+      trigger_type: "Timer (*/30 * * * * *)"
+
+    - id: "DLV-009-STORY"
+      ac_node_ref: "DLV-009"
+      title: "Handle OrderCancelled event to cancel awaiting deliveries"
+      story_type: "event-handler"
+      ddd_pattern: "domain_event_handler"
+      estimated_points: 2
+      azure_function: "HandleOrderCancelledDeliveryFunction"
+      trigger_type: "ServiceBus Topic"
+
+  dependency_graph:
+    # DLV-001 depends on RST-007 (consumes OrderReadyForPickup event)
+    - story_id: "DLV-001-STORY"
+      depends_on:
+        - story_id: "RST-007-STORY"
+          type: "cross-context"
+          reason: "Consumes the OrderReadyForPickup event produced when restaurant staff mark food as ready"
+
+    # DLV-002 depends on DLV-001 (delivery must be in AwaitingDriver)
+    - story_id: "DLV-002-STORY"
+      depends_on:
+        - story_id: "DLV-001-STORY"
+          type: "intra-context"
+          reason: "A Delivery must be created in AwaitingDriver status via OrderReadyForPickup event before a driver can be assigned"
+
+    # DLV-003 depends on DLV-002 (driver must be assigned)
+    - story_id: "DLV-003-STORY"
+      depends_on:
+        - story_id: "DLV-002-STORY"
+          type: "intra-context"
+          reason: "A driver must be assigned to the delivery before location updates can be sent"
+
+    # DLV-004 depends on DLV-002 (delivery must be in DriverAssigned)
+    - story_id: "DLV-004-STORY"
+      depends_on:
+        - story_id: "DLV-002-STORY"
+          type: "intra-context"
+          reason: "A driver must be assigned to the delivery (DriverAssigned status) before pickup can be confirmed"
+
+    # DLV-005 depends on DLV-004 (delivery must be in PickedUp)
+    - story_id: "DLV-005-STORY"
+      depends_on:
+        - story_id: "DLV-004-STORY"
+          type: "intra-context"
+          reason: "The delivery must be in PickedUp status, which requires the ConfirmPickup command to have been executed"
+
+    # DLV-006 depends on DLV-001 (delivery must exist)
+    - story_id: "DLV-006-STORY"
+      depends_on:
+        - story_id: "DLV-001-STORY"
+          type: "intra-context"
+          reason: "A delivery must exist before it can be queried"
+
+    # DLV-007 depends on DLV-002 (driver must be assigned for ETA)
+    - story_id: "DLV-007-STORY"
+      depends_on:
+        - story_id: "DLV-002-STORY"
+          type: "intra-context"
+          reason: "A driver must be assigned before an estimated arrival time can be retrieved"
+
+    # DLV-008 depends on DLV-001 (deliveries must exist in AwaitingDriver)
+    - story_id: "DLV-008-STORY"
+      depends_on:
+        - story_id: "DLV-001-STORY"
+          type: "intra-context"
+          reason: "Deliveries must exist in AwaitingDriver status before they can be monitored"
+
+    # DLV-009 depends on ORD-002 (consumes OrderCancelled) and DLV-001 (delivery may exist)
+    - story_id: "DLV-009-STORY"
+      depends_on:
+        - story_id: "ORD-002-STORY"
+          type: "cross-context"
+          reason: "Consumes the OrderCancelled event produced when a customer cancels an order"
+        - story_id: "DLV-001-STORY"
+          type: "intra-context"
+          reason: "A delivery may have been created via OrderReadyForPickup before the cancellation arrives"
+
+  event_flow:
+    produces:
+      - event: "DriverAssigned"
+        topic: "delivery.driver-assigned"
+        produced_by: "DLV-002-STORY"
+        consumed_by:
+          - context: "Orders"
+            story: "ORD-008-STORY"
+      - event: "DeliveryCompleted"
+        topic: "delivery.completed"
+        produced_by: "DLV-005-STORY"
+        consumed_by:
+          - context: "Orders"
+            story: "ORD-009-STORY"
+    consumes:
+      - event: "OrderReadyForPickup"
+        topic: "restaurant.order-ready"
+        consumed_by: "DLV-001-STORY"
+        produced_by:
+          context: "Restaurant"
+          story: "RST-007-STORY"
+      - event: "OrderCancelled"
+        topic: "orders.cancelled"
+        consumed_by: "DLV-009-STORY"
+        produced_by:
+          context: "Orders"
+          story: "ORD-002-STORY"

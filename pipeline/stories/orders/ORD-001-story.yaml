@@ -1,0 +1,110 @@
+story:
+  id: "ORD-001-STORY"
+  ac_node_ref: "ORD-001"
+  bounded_context: "Orders"
+  epic: "Order Lifecycle Management"
+  feature: "Order Placement"
+  title: "Place a new food order with validated line items"
+  user_story: >
+    As a customer, I want to place a food order with my chosen line items and
+    delivery address so that the restaurant receives my order and I receive a
+    confirmed order number with the calculated total.
+  acceptance_criteria:
+    - id: "ORD-001-AC-01"
+      given: >
+        A valid customerId (non-empty Guid) exists and a valid restaurantId
+        (non-empty Guid) exists
+      when: >
+        POST /orders is called with valid customerId, restaurantId,
+        deliveryAddress, and lineItems
+      then: >
+        A new Order aggregate is created with status Placed
+    - id: "ORD-001-AC-02"
+      given: >
+        A delivery address with street, city, postcode, latitude, and longitude
+        is provided
+      when: >
+        POST /orders is called with valid customerId, restaurantId,
+        deliveryAddress, and lineItems
+      then: >
+        An order number is generated in format ORD-YYYYMMDD-sequential
+    - id: "ORD-001-AC-03"
+      given: >
+        Between 1 and 20 line items are provided, each with quantity >= 1 and
+        unitPrice > 0.00
+      when: >
+        POST /orders is called with valid customerId, restaurantId,
+        deliveryAddress, and lineItems
+      then: >
+        Order total is calculated as subtotal + GBP 2.99 delivery fee
+    - id: "ORD-001-AC-04"
+      given: >
+        The sum of (quantity x unitPrice) across all line items is >= GBP 10.00
+      when: >
+        POST /orders is called with valid customerId, restaurantId,
+        deliveryAddress, and lineItems
+      then: >
+        The Order is persisted to Cosmos DB orders container partitioned by
+        customerId
+    - id: "ORD-001-AC-05"
+      given: >
+        All order validation rules pass (ORD-R01 through ORD-R04)
+      when: >
+        POST /orders is called with valid customerId, restaurantId,
+        deliveryAddress, and lineItems
+      then: >
+        An OrderPlaced domain event is published to Service Bus topic
+        orders.placed via the outbox pattern
+    - id: "ORD-001-AC-06"
+      given: >
+        All order validation rules pass (ORD-R01 through ORD-R04)
+      when: >
+        POST /orders is called with valid customerId, restaurantId,
+        deliveryAddress, and lineItems
+      then: >
+        HTTP 201 is returned with orderId, orderNumber, status, and calculated
+        total
+  error_scenarios:
+    - id: "ORD-001-ERR-01"
+      condition: "Order subtotal is below GBP 10.00"
+      expected_behaviour: "HTTP 400 returned with error"
+      error_code: "ORDER_MINIMUM_NOT_MET"
+    - id: "ORD-001-ERR-02"
+      condition: "More than 20 line items provided"
+      expected_behaviour: "HTTP 400 returned with error"
+      error_code: "ORDER_TOO_MANY_ITEMS"
+    - id: "ORD-001-ERR-03"
+      condition: "Any line item has quantity < 1 or unitPrice <= 0.00"
+      expected_behaviour: "HTTP 400 returned with error"
+      error_code: "ORDER_INVALID_LINE_ITEM"
+    - id: "ORD-001-ERR-04"
+      condition: "Delivery address is missing latitude or longitude"
+      expected_behaviour: "HTTP 400 returned with error"
+      error_code: "ORDER_INVALID_ADDRESS"
+    - id: "ORD-001-ERR-05"
+      condition: "customerId is empty or invalid Guid"
+      expected_behaviour: "HTTP 400 returned with error"
+      error_code: "ORDER_INVALID_CUSTOMER"
+    - id: "ORD-001-ERR-06"
+      condition: "restaurantId is empty or invalid Guid"
+      expected_behaviour: "HTTP 400 returned with error"
+      error_code: "ORDER_INVALID_RESTAURANT"
+  story_dependencies: []
+  story_type: "command"
+  estimated_points: 5
+  ddd_pattern: "aggregate_command"
+  ddd_notes: >
+    Creates the Order aggregate root, validates invariants (ORD-R01 through
+    ORD-R04), calculates OrderTotal value object (ORD-R06), generates
+    OrderNumber (ORD-R07), and raises OrderPlaced domain event via outbox
+    pattern. This is the primary entry point for the entire order lifecycle
+    across all bounded contexts.
+  azure_function: "PlaceOrderFunction"
+  trigger_type: "HTTP POST"
+  traceability:
+    fdd_sections:
+      - "3.3 Business Rules (ORD-R01 through ORD-R07)"
+      - "3.4 API Endpoints - POST /orders"
+      - "3.5 Domain Events Raised - OrderPlaced"
+    ac_node_ids:
+      - "ORD-001"

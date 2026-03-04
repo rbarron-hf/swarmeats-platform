@@ -1,0 +1,50 @@
+routing_summary:
+  bounded_context: "Restaurant"
+  generated_at: "2026-03-03T00:00:00Z"
+  total_stories: 9
+  routing_breakdown:
+    single_agent: 8
+    single_agent_with_subagents: 1
+    full_swarm: 0
+  estimated_total_points: 24
+  stories_by_routing:
+    single_agent:
+      - story_id: "RST-001"
+        behaviour_name: "Get Menu"
+        total_score: 0
+        estimated_complexity: 1
+      - story_id: "RST-002"
+        behaviour_name: "Get Active Orders"
+        total_score: 0
+        estimated_complexity: 2
+      - story_id: "RST-004"
+        behaviour_name: "Accept Order"
+        total_score: 4
+        estimated_complexity: 3
+      - story_id: "RST-005"
+        behaviour_name: "Reject Order"
+        total_score: 4
+        estimated_complexity: 3
+      - story_id: "RST-006"
+        behaviour_name: "Mark Preparing"
+        total_score: 0
+        estimated_complexity: 2
+      - story_id: "RST-007"
+        behaviour_name: "Mark Ready for Pickup"
+        total_score: 3
+        estimated_complexity: 3
+      - story_id: "RST-008"
+        behaviour_name: "Handle Order Cancelled"
+        total_score: 1
+        estimated_complexity: 2
+      - story_id: "RST-009"
+        behaviour_name: "Active Order Dashboard Projection"
+        total_score: 3
+        estimated_complexity: 3
+    single_agent_with_subagents:
+      - story_id: "RST-003"
+        behaviour_name: "Process Incoming Order"
+        total_score: 8
+        estimated_complexity: 5
+        override_applied: "domain_logic_depth=2 AND core of story -> capped at single_agent_with_subagents"
+    full_swarm: []

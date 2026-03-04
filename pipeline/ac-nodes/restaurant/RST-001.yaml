@@ -1,0 +1,27 @@
+ac_node:
+  id: "RST-001"
+  bounded_context: "Restaurant"
+  aggregate_root: "Menu"
+  behaviour_name: "Get Menu"
+  trigger: "HTTP GET /restaurants/{restaurantId}/menu"
+  azure_function: "GetMenuFunction"
+  given:
+    - "A restaurant exists with an active menu containing menu items, availability flags, and operating hours (openingTime/closingTime UTC)"
+  when:
+    - "A GET request is received for /restaurants/{restaurantId}/menu"
+  then:
+    - "The full menu is returned with HTTP 200"
+    - "Response includes all menu items with name, description, price, category, and availability flag"
+    - "Response includes restaurant operating hours (openingTime, closingTime)"
+  error_conditions:
+    - condition: "Restaurant with the given restaurantId does not exist in the menus container"
+      expected: "HTTP 404 returned with error body"
+      error_code: "RESTAURANT_NOT_FOUND"
+  data_contracts:
+    request_schema: "GET /restaurants/{restaurantId}/menu — no request body; restaurantId is a Guid path parameter"
+    response_schema: "HTTP 200: { restaurantId: Guid, operatingHours: { openingTime: string, closingTime: string }, items: [ { menuItemId: Guid, name: string, description: string, price: { amount: decimal, currency: string }, category: string, isAvailable: bool, preparationTimeMinutes: int } ] }"
+    domain_events: []
+  dependencies: []
+  estimated_complexity: 1
+  story_type: "backend"
+  notes: "Read-only query against the menus Cosmos DB container partitioned by /restaurantId. No domain events raised. This is the simplest endpoint in the Restaurant context."

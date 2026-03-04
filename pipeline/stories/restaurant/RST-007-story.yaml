@@ -1,0 +1,83 @@
+story:
+  id: "RST-007-STORY"
+  ac_node_ref: "RST-007"
+  bounded_context: "Restaurant"
+  epic: "Restaurant Order Management"
+  feature: "Preparation Tracking"
+  title: "Mark an order as ReadyForPickup and notify delivery"
+  user_story: >
+    As restaurant staff, I want to signal that food is ready for driver pickup
+    so that the Delivery context can create a delivery and assign a driver to
+    collect the order.
+  acceptance_criteria:
+    - id: "RST-007-AC-01"
+      given: >
+        A RestaurantOrder exists in the restaurant-orders container with the
+        given orderId and restaurantId and the RestaurantOrder is in Preparing
+        status
+      when: >
+        Restaurant staff sends a PUT request to
+        /restaurants/{restaurantId}/orders/{orderId}/status with status
+        'ReadyForPickup'
+      then: >
+        The RestaurantOrder status transitions from Preparing to ReadyForPickup
+    - id: "RST-007-AC-02"
+      given: >
+        A RestaurantOrder is in Preparing status
+      when: >
+        Restaurant staff sends a PUT request with status 'ReadyForPickup'
+      then: >
+        The readyAt timestamp is recorded on the RestaurantOrder
+    - id: "RST-007-AC-03"
+      given: >
+        A RestaurantOrder is in Preparing status
+      when: >
+        Restaurant staff sends a PUT request with status 'ReadyForPickup'
+      then: >
+        An OrderReadyForPickup event is published to the restaurant.order-ready
+        Service Bus topic via the outbox pattern
+    - id: "RST-007-AC-04"
+      given: >
+        A RestaurantOrder is in Preparing status
+      when: >
+        Restaurant staff sends a PUT request with status 'ReadyForPickup'
+      then: >
+        The event payload includes the restaurant address (street, city,
+        postcode, latitude, longitude) for driver pickup
+    - id: "RST-007-AC-05"
+      given: >
+        A RestaurantOrder is in Preparing status
+      when: >
+        Restaurant staff sends a PUT request with status 'ReadyForPickup'
+      then: >
+        HTTP 200 is returned with the updated RestaurantOrder
+  error_scenarios:
+    - id: "RST-007-ERR-01"
+      condition: "No RestaurantOrder found with the given orderId for the given restaurantId"
+      expected_behaviour: "HTTP 404 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+    - id: "RST-007-ERR-02"
+      condition: "RestaurantOrder exists but is not in Preparing status (invalid transition per state machine: Preparing -> ReadyForPickup)"
+      expected_behaviour: "HTTP 409 returned with error body"
+      error_code: "RESTAURANT_INVALID_TRANSITION"
+  story_dependencies:
+    - story_id: "RST-006-STORY"
+      reason: "The RestaurantOrder must be in Preparing status, which requires the MarkPreparing command to have been executed"
+  story_type: "command"
+  estimated_points: 3
+  ddd_pattern: "aggregate_command"
+  ddd_notes: >
+    Shares the UpdatePreparationStatusFunction Azure Function with RST-006.
+    This transition (Preparing -> ReadyForPickup) raises the
+    OrderReadyForPickup domain event, which triggers the Delivery context to
+    create a new Delivery aggregate. The restaurant address must be loaded
+    from restaurant/menu data to include in the event payload. Published via
+    outbox pattern.
+  azure_function: "UpdatePreparationStatusFunction"
+  trigger_type: "HTTP PUT"
+  traceability:
+    fdd_sections:
+      - "4.5 API Endpoints - PUT /restaurants/{restaurantId}/orders/{orderId}/status"
+      - "4.6 Domain Events Raised - OrderReadyForPickup"
+    ac_node_ids:
+      - "RST-007"

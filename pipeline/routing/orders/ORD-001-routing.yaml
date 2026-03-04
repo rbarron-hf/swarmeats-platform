@@ -1,0 +1,22 @@
+routing_decision:
+  story_id: "ORD-001"
+  bounded_context: "Orders"
+  scores:
+    ac_node_count: 0        # 1 AC node -> 0
+    file_surface_area: 2    # Command handler, Order aggregate, OrderLineItem entity, DeliveryAddress VO, OrderTotal VO, OrderPlaced event, outbox, request/response DTOs, validator, tests -> 11+ files -> 2
+    integration_boundaries: 0  # Downstream only (event published, not consumed from external) -> 0
+    shared_aggregate: 0     # Order aggregate is owned solely by Orders context -> 0
+    error_condition_density: 2  # 6 error conditions (ORDER_MINIMUM_NOT_MET, ORDER_TOO_MANY_ITEMS, ORDER_INVALID_LINE_ITEM, ORDER_INVALID_ADDRESS, ORDER_INVALID_CUSTOMER, ORDER_INVALID_RESTAURANT) -> 2
+    domain_logic_depth: 2   # Order total calculation, order number generation (ORD-YYYYMMDD-sequential), 6 validation rules, state machine Draft->Placed -> 2
+    estimated_complexity: 2  # Complexity 5 -> 2
+  total_score: 8
+  routing: "single_agent_with_subagents"
+  override_applied: "domain_logic_depth=2 AND core command -> capped at single_agent_with_subagents"
+  rationale: "PlaceOrder is the primary entry point for the order lifecycle with 6 distinct validation rules, order total calculation (subtotal + GBP 2.99 delivery fee), sequential order number generation, and outbox-pattern event publishing. The high error condition density and domain logic depth justify subagent delegation for validation logic and aggregate construction, but the story stays within a single bounded context with no cross-context reads."
+  recommended_subagent_tasks:
+    - "Implement Order aggregate root with state machine and PlaceOrder factory method"
+    - "Implement input validation (6 error conditions: minimum subtotal, max items, line item validation, address validation, customer/restaurant ID validation)"
+    - "Implement order number generation (ORD-YYYYMMDD-sequential format)"
+    - "Implement OrderPlaced domain event and outbox publishing"
+    - "Write unit tests for all 6 error conditions and happy path"
+  recommended_swarm_workers: []

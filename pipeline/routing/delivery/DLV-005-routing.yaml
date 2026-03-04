@@ -1,0 +1,17 @@
+routing_decision:
+  story_id: "DLV-005"
+  bounded_context: "Delivery"
+  scores:
+    ac_node_count: 0        # 1 AC node -> 0
+    file_surface_area: 1    # Command handler, state transition, SLA calculation, DeliveryCompleted event, outbox, validator, DTOs, tests -> ~9 files -> 1
+    integration_boundaries: 0  # No external dependencies; DeliveryCompleted published downstream -> 0
+    shared_aggregate: 0     # Delivery aggregate owned solely by Delivery context -> 0
+    error_condition_density: 1  # 3 error conditions (DELIVERY_NOT_FOUND, DELIVERY_NOT_PICKED_UP, DELIVERY_WRONG_DRIVER) -> 1
+    domain_logic_depth: 1   # totalDeliveryMinutes calculation (readyAt to deliveredAt elapsed time), SLA breach flag (>45 min threshold), event raising -> 1
+    estimated_complexity: 1  # Complexity 3 -> 1
+  total_score: 4
+  routing: "single_agent"
+  override_applied: null
+  rationale: "CompleteDelivery transitions to Delivered status and performs SLA tracking calculations. The totalDeliveryMinutes is calculated from OrderReadyForPickup readyAt to deliveredAt, and the slaBreached flag is set if it exceeds 45 minutes. Raises DeliveryCompleted event via outbox pattern. The SLA logic is a simple time comparison, not a complex state machine."
+  recommended_subagent_tasks: []
+  recommended_swarm_workers: []

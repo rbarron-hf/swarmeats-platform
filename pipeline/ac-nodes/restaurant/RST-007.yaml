@@ -1,0 +1,44 @@
+ac_node:
+  id: "RST-007"
+  bounded_context: "Restaurant"
+  aggregate_root: "RestaurantOrder"
+  behaviour_name: "Mark Ready for Pickup"
+  trigger: "HTTP PUT /restaurants/{restaurantId}/orders/{orderId}/status with status=ReadyForPickup"
+  azure_function: "UpdatePreparationStatusFunction"
+  given:
+    - "A RestaurantOrder exists in the restaurant-orders container with the given orderId and restaurantId"
+    - "The RestaurantOrder is in Preparing status"
+  when:
+    - "Restaurant staff sends a PUT request to /restaurants/{restaurantId}/orders/{orderId}/status with status 'ReadyForPickup'"
+  then:
+    - "The RestaurantOrder status transitions from Preparing to ReadyForPickup"
+    - "The readyAt timestamp is recorded on the RestaurantOrder"
+    - "An OrderReadyForPickup event is published to the restaurant.order-ready Service Bus topic via the outbox pattern"
+    - "The event payload includes the restaurant address (street, city, postcode, latitude, longitude) for driver pickup"
+    - "HTTP 200 is returned with the updated RestaurantOrder"
+  error_conditions:
+    - condition: "No RestaurantOrder found with the given orderId for the given restaurantId"
+      expected: "HTTP 404 returned with error body"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+    - condition: "RestaurantOrder exists but is not in Preparing status (invalid transition per state machine: Preparing -> ReadyForPickup)"
+      expected: "HTTP 409 returned with error body"
+      error_code: "RESTAURANT_INVALID_TRANSITION"
+  data_contracts:
+    request_schema: "PUT /restaurants/{restaurantId}/orders/{orderId}/status — { status: 'ReadyForPickup' }"
+    response_schema: "HTTP 200: { orderId: Guid, restaurantId: Guid, status: 'ReadyForPickup', readyAt: DateTimeOffset }"
+    domain_events:
+      - event_name: "OrderReadyForPickup"
+        target: "restaurant.order-ready"
+        payload_fields:
+          - name: "orderId"
+            type: "Guid"
+          - name: "restaurantId"
+            type: "Guid"
+          - name: "restaurantAddress"
+            type: "object { street: string, city: string, postcode: string, latitude: decimal, longitude: decimal }"
+          - name: "readyAt"
+            type: "DateTimeOffset"
+  dependencies: []
+  estimated_complexity: 3
+  story_type: "backend"
+  notes: "Shares the UpdatePreparationStatusFunction Azure Function with RST-006 (Mark Preparing). This transition (Preparing -> ReadyForPickup) raises the OrderReadyForPickup event, which triggers the Delivery context to create a new Delivery aggregate in AwaitingDriver status. The restaurant address must be loaded from the restaurant/menu data to include in the event payload. Published via outbox pattern."

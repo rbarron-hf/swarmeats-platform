@@ -1,0 +1,66 @@
+story:
+  id: "DLV-004-STORY"
+  ac_node_ref: "DLV-004"
+  bounded_context: "Delivery"
+  epic: "Delivery Lifecycle Management"
+  feature: "Pickup Confirmation"
+  title: "Confirm food pickup from the restaurant"
+  user_story: >
+    As a driver, I want to confirm that I have picked up the food from the
+    restaurant so that the delivery status is updated and the customer knows
+    I am on the way.
+  acceptance_criteria:
+    - id: "DLV-004-AC-01"
+      given: >
+        A delivery exists in the deliveries container and the delivery is in
+        DriverAssigned status and the driverId in the request matches the
+        driver assigned to the delivery
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/pickup with
+        driverId
+      then: >
+        The delivery status transitions from DriverAssigned to PickedUp
+    - id: "DLV-004-AC-02"
+      given: >
+        All validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/pickup
+      then: >
+        The pickup timestamp is recorded on the delivery
+    - id: "DLV-004-AC-03"
+      given: >
+        All validations pass
+      when: >
+        A POST request is made to /deliveries/{deliveryId}/pickup
+      then: >
+        HTTP 200 is returned with the updated delivery (status = PickedUp)
+  error_scenarios:
+    - id: "DLV-004-ERR-01"
+      condition: "Delivery not found"
+      expected_behaviour: "HTTP 404 returned"
+      error_code: "DELIVERY_NOT_FOUND"
+    - id: "DLV-004-ERR-02"
+      condition: "Delivery not in DriverAssigned status (invalid state transition)"
+      expected_behaviour: "HTTP 409 returned"
+      error_code: "DELIVERY_INVALID_TRANSITION"
+    - id: "DLV-004-ERR-03"
+      condition: "Driver ID does not match the assigned driver"
+      expected_behaviour: "HTTP 403 returned"
+      error_code: "DELIVERY_WRONG_DRIVER"
+  story_dependencies:
+    - story_id: "DLV-002-STORY"
+      reason: "A driver must be assigned to the delivery (DriverAssigned status) before pickup can be confirmed"
+  story_type: "command"
+  estimated_points: 2
+  ddd_pattern: "aggregate_command"
+  ddd_notes: >
+    Straightforward state transition from DriverAssigned to PickedUp on the
+    Delivery aggregate. No domain events are raised on pickup confirmation.
+    Driver location updates continue to be accepted after pickup.
+  azure_function: "ConfirmPickupFunction"
+  trigger_type: "HTTP POST"
+  traceability:
+    fdd_sections:
+      - "5.4 API Endpoints - POST /deliveries/{deliveryId}/pickup"
+    ac_node_ids:
+      - "DLV-004"

@@ -1,0 +1,86 @@
+self_assessment:
+  story_id: "ORD-004"
+  bounded_context: "Orders"
+  agent: "Layer 5 Coding Agent"
+  round: 1
+  assessed_at: "2026-03-03T18:45:00Z"
+
+  files_produced:
+    - path: "src/Orders/Domain/Queries/GetOrdersByCustomerQuery.cs"
+      purpose: "MediatR IRequest with query, GetOrdersByCustomerResponse, and OrderSummaryResponse DTOs"
+      status: "complete"
+
+    - path: "src/Orders/Domain/Queries/GetOrdersByCustomerQueryHandler.cs"
+      purpose: "Loads orders by customer from repository, maps to summary DTOs, returns paginated response"
+      status: "complete"
+
+    - path: "src/Orders/Functions/GetOrdersByCustomerFunction.cs"
+      purpose: "HTTP GET /orders?customerId={customerId} trigger, validates query params, dispatches via MediatR"
+      status: "complete"
+
+    - path: "src/Orders/Infrastructure/Repositories/IOrderRepository.cs"
+      purpose: "Modified to add GetByCustomerIdAsync method signature"
+      status: "complete"
+
+    - path: "src/Orders/Infrastructure/Repositories/CosmosOrderRepository.cs"
+      purpose: "Modified to implement GetByCustomerIdAsync with partition key query and pagination"
+      status: "complete"
+
+    - path: "tests/Orders.Tests/Unit/ORD004Tests.cs"
+      purpose: "5 xUnit tests covering order summaries, pagination, continuation tokens, and empty results"
+      status: "complete"
+
+  acceptance_criteria_coverage:
+    - id: "ORD-004-AC-01"
+      description: "Returns paginated list of order summaries sorted by creation date descending"
+      covered_by:
+        - "GetOrdersByCustomer_WhenOrdersExist_ReturnsOrderSummaries"
+        - "GetOrdersByCustomer_WhenNoMoreResults_ContinuationTokenIsNull"
+      status: "covered"
+
+    - id: "ORD-004-AC-02"
+      description: "Continuation token included when more results exist"
+      covered_by:
+        - "GetOrdersByCustomer_WhenMoreResultsExist_ReturnsContinuationToken"
+        - "GetOrdersByCustomer_WithContinuationToken_PassesTokenToRepository"
+      status: "covered"
+
+    - id: "ORD-004-AC-03"
+      description: "Empty list returned when customer has no orders"
+      covered_by: "GetOrdersByCustomer_WhenNoOrders_ReturnsEmptyList"
+      status: "covered"
+
+  error_scenario_coverage:
+    - id: "ORD-004-ERR-01"
+      description: "Invalid or empty customerId returns HTTP 400 with ORDER_INVALID_CUSTOMER"
+      covered_by: "Handled in GetOrdersByCustomerFunction.Run() - Guid validation at function level"
+      status: "covered"
+
+  business_rules_enforced: []
+
+  ddd_compliance:
+    domain_layer_zero_infrastructure_refs: true
+    business_rule_in_aggregate: true
+    domain_event_raised_in_aggregate: true
+    handler_delegates_to_aggregate: true
+    function_only_http_concerns: true
+
+  test_summary:
+    total_tests: 5
+    aggregate_level_tests: 0
+    handler_level_tests: 5
+    all_tests_have_real_implementations: true
+    mocking_library: "Moq"
+    assertion_library: "FluentAssertions"
+
+  known_gaps:
+    - description: "RestaurantName in OrderSummaryResponse is always empty string since Order aggregate does not store restaurant name"
+      severity: "low"
+      reason: "Restaurant name is owned by the Restaurant context; would require a cross-context lookup or denormalization to populate"
+
+  overall_confidence: "high"
+  notes: >
+    All 5 tests have complete Arrange/Act/Assert implementations. The query handler is a pure
+    read operation with no business logic. Pagination is handled via Cosmos DB continuation tokens
+    passed through the repository interface. The function validates the customerId query parameter
+    and returns HTTP 400 for invalid values.

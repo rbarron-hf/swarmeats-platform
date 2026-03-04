@@ -1,0 +1,545 @@
+function_topology:
+  generated_at: '2026-03-03T00:00:00Z'
+  functions:
+  - name: PlaceOrderFunction
+    bounded_context: Orders
+    trigger_type: HTTP
+    trigger_details:
+      method: POST
+      route: orders
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: orders
+      operation: write
+    - type: ServiceBus
+      target: orders.placed
+      operation: publish
+    description: >-
+      Creates a new order. Validates business rules (minimum subtotal, max line items, line item quantities/prices,
+      delivery address). Persists the order to Cosmos DB and publishes an OrderPlaced event to Service
+      Bus via the outbox pattern.
+    related_aggregate: Order
+    command_or_query: command
+  - name: CancelOrderFunction
+    bounded_context: Orders
+    trigger_type: HTTP
+    trigger_details:
+      method: POST
+      route: orders/{orderId}/cancel
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: orders
+      operation: read
+    - type: CosmosDB
+      target: orders
+      operation: write
+    - type: ServiceBus
+      target: orders.cancelled
+      operation: publish
+    description: >-
+      Cancels an order. Only permitted while the order status is Placed (before the restaurant accepts).
+      Reads the order, validates the transition, writes the updated status, and publishes an OrderCancelled
+      event.
+    related_aggregate: Order
+    command_or_query: command
+  - name: GetOrderFunction
+    bounded_context: Orders
+    trigger_type: HTTP
+    trigger_details:
+      method: GET
+      route: orders/{orderId}
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: orders
+      operation: read
+    description: >-
+      Returns the full order including line items, status, and timestamps for each state transition. Reads
+      from the orders Cosmos DB container.
+    related_aggregate: Order
+    command_or_query: query
+  - name: GetOrdersByCustomerFunction
+    bounded_context: Orders
+    trigger_type: HTTP
+    trigger_details:
+      method: GET
+      route: orders
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: orders
+      operation: read
+    description: >-
+      Returns all orders for a customer, sorted by creation date descending. Supports pagination via continuationToken
+      query parameter. Reads from the orders container partitioned by customerId.
+    related_aggregate: Order
+    command_or_query: query
+  - name: HandleOrderAcceptedFunction
+    bounded_context: Orders
+    trigger_type: ServiceBus
+    trigger_details:
+      topic: restaurant.order-accepted
+      subscription: orders-context
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: orders
+      operation: read
+    - type: CosmosDB
+      target: orders
+      operation: write
+    description: >-
+      Handles the OrderAccepted event from the Restaurant context. Transitions the order status to Accepted.
+      If the transition is invalid (e.g. order already cancelled), logs a warning and discards the event.
+    related_aggregate: Order
+    command_or_query: command
+  - name: HandleOrderRejectedFunction
+    bounded_context: Orders
+    trigger_type: ServiceBus
+    trigger_details:
+      topic: restaurant.order-rejected
+      subscription: orders-context
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: orders
+      operation: read
+    - type: CosmosDB
+      target: orders
+      operation: write
+    description: >-
+      Handles the OrderRejected event from the Restaurant context. Transitions the order status to Rejected.
+      If the transition is invalid, logs a warning and discards the event.
+    related_aggregate: Order
+    command_or_query: command
+  - name: HandleOrderReadyFunction
+    bounded_context: Orders
+    trigger_type: ServiceBus
+    trigger_details:
+      topic: restaurant.order-ready
+      subscription: orders-context
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: orders
+      operation: read
+    - type: CosmosDB
+      target: orders
+      operation: write
+    description: >-
+      Handles the OrderReadyForPickup event from the Restaurant context. Transitions the order status
+      to ReadyForPickup. If the transition is invalid, logs a warning and discards the event.
+    related_aggregate: Order
+    command_or_query: command
+  - name: HandleDriverAssignedFunction
+    bounded_context: Orders
+    trigger_type: ServiceBus
+    trigger_details:
+      topic: delivery.driver-assigned
+      subscription: orders-context
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: orders
+      operation: read
+    - type: CosmosDB
+      target: orders
+      operation: write
+    description: >-
+      Handles the DriverAssigned event from the Delivery context. Transitions the order status to InDelivery.
+      If the transition is invalid, logs a warning and discards the event.
+    related_aggregate: Order
+    command_or_query: command
+  - name: HandleDeliveryCompletedFunction
+    bounded_context: Orders
+    trigger_type: ServiceBus
+    trigger_details:
+      topic: delivery.completed
+      subscription: orders-context
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: orders
+      operation: read
+    - type: CosmosDB
+      target: orders
+      operation: write
+    description: >-
+      Handles the DeliveryCompleted event from the Delivery context. Transitions the order status to Delivered.
+      If the transition is invalid, logs a warning and discards the event.
+    related_aggregate: Order
+    command_or_query: command
+  - name: GetMenuFunction
+    bounded_context: Restaurant
+    trigger_type: HTTP
+    trigger_details:
+      method: GET
+      route: restaurants/{restaurantId}/menu
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: menus
+      operation: read
+    description: >-
+      Returns the full menu for a restaurant including all items, availability, and operating hours. Reads
+      from the menus Cosmos DB container.
+    related_aggregate: Menu
+    command_or_query: query
+  - name: GetActiveOrdersFunction
+    bounded_context: Restaurant
+    trigger_type: HTTP
+    trigger_details:
+      method: GET
+      route: restaurants/{restaurantId}/orders
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: restaurant-orders
+      operation: read
+    description: >-
+      Returns orders for a restaurant filtered by status. Used by the restaurant dashboard. Reads from
+      the restaurant-orders Cosmos DB container.
+    related_aggregate: RestaurantOrder
+    command_or_query: query
+  - name: AcceptOrderFunction
+    bounded_context: Restaurant
+    trigger_type: HTTP
+    trigger_details:
+      method: POST
+      route: restaurants/{restaurantId}/orders/{orderId}/accept
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: restaurant-orders
+      operation: read
+    - type: CosmosDB
+      target: restaurant-orders
+      operation: write
+    - type: ServiceBus
+      target: restaurant.order-accepted
+      operation: publish
+    description: >-
+      Staff accepts an incoming order with an estimated preparation time (5-90 minutes). Validates the
+      order is in Pending status, transitions to Accepted, and publishes an OrderAccepted event.
+    related_aggregate: RestaurantOrder
+    command_or_query: command
+  - name: RejectOrderFunction
+    bounded_context: Restaurant
+    trigger_type: HTTP
+    trigger_details:
+      method: POST
+      route: restaurants/{restaurantId}/orders/{orderId}/reject
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: restaurant-orders
+      operation: read
+    - type: CosmosDB
+      target: restaurant-orders
+      operation: write
+    - type: ServiceBus
+      target: restaurant.order-rejected
+      operation: publish
+    description: >-
+      Staff rejects an incoming order with a reason code (RESTAURANT_CLOSED, ITEM_UNAVAILABLE, TOO_BUSY,
+      OTHER). Validates the order is in Pending status, transitions to Rejected, and publishes an OrderRejected
+      event.
+    related_aggregate: RestaurantOrder
+    command_or_query: command
+  - name: UpdatePreparationStatusFunction
+    bounded_context: Restaurant
+    trigger_type: HTTP
+    trigger_details:
+      method: PUT
+      route: restaurants/{restaurantId}/orders/{orderId}/status
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: restaurant-orders
+      operation: read
+    - type: CosmosDB
+      target: restaurant-orders
+      operation: write
+    - type: ServiceBus
+      target: restaurant.order-ready
+      operation: publish
+    description: >-
+      Staff updates the order preparation status to Preparing or ReadyForPickup. Validates the status
+      transition is valid. When the status transitions to ReadyForPickup, publishes an OrderReadyForPickup
+      event.
+    related_aggregate: RestaurantOrder
+    command_or_query: command
+  - name: HandleOrderPlacedFunction
+    bounded_context: Restaurant
+    trigger_type: ServiceBus
+    trigger_details:
+      topic: orders.placed
+      subscription: restaurant-context
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: restaurant-orders
+      operation: write
+    - type: CosmosDB
+      target: menus
+      operation: read
+    - type: ServiceBus
+      target: restaurant.order-rejected
+      operation: publish
+    description: >-
+      Handles the OrderPlaced event from the Orders context. Creates a new RestaurantOrder in Pending
+      status. Validates menu items exist and are available, and validates restaurant operating hours.
+      If validation fails, auto-rejects the order immediately by publishing an OrderRejected event.
+    related_aggregate: RestaurantOrder
+    command_or_query: command
+  - name: HandleOrderCancelledFunction
+    bounded_context: Restaurant
+    trigger_type: ServiceBus
+    trigger_details:
+      topic: orders.cancelled
+      subscription: restaurant-context
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: restaurant-orders
+      operation: read
+    - type: CosmosDB
+      target: restaurant-orders
+      operation: write
+    description: >-
+      Handles the OrderCancelled event from the Orders context. If the restaurant order is still in Pending
+      status, marks it as cancelled. If already Accepted or later, logs a warning since the food is already
+      being prepared.
+    related_aggregate: RestaurantOrder
+    command_or_query: command
+  - name: ActiveOrderDashboardFunction
+    bounded_context: Restaurant
+    trigger_type: ChangeFeed
+    trigger_details:
+      database: swarmeats
+      container: restaurant-orders
+      lease_container: restaurant-orders-leases
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: restaurant-orders
+      operation: read
+    description: >-
+      Monitors the restaurant-orders Cosmos DB container via Change Feed. When a restaurant order document
+      changes, pushes the updated order state to a read-optimised projection used by the restaurant dashboard.
+      Does not raise domain events. This is a query-side projection for performance.
+    related_aggregate: RestaurantOrder
+    command_or_query: query
+  - name: GetDeliveryStatusFunction
+    bounded_context: Delivery
+    trigger_type: HTTP
+    trigger_details:
+      method: GET
+      route: deliveries/{deliveryId}
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: deliveries
+      operation: read
+    description: >-
+      Returns the delivery details including current status, driver location, route, and estimated arrival.
+      Reads from the deliveries Cosmos DB container.
+    related_aggregate: Delivery
+    command_or_query: query
+  - name: GetEstimatedArrivalFunction
+    bounded_context: Delivery
+    trigger_type: HTTP
+    trigger_details:
+      method: GET
+      route: deliveries/{deliveryId}/eta
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: deliveries
+      operation: read
+    description: >-
+      Returns the current estimated arrival time based on the driver last known location and the last
+      location update timestamp. Reads from the deliveries Cosmos DB container.
+    related_aggregate: Delivery
+    command_or_query: query
+  - name: AssignDriverFunction
+    bounded_context: Delivery
+    trigger_type: HTTP
+    trigger_details:
+      method: POST
+      route: deliveries/{deliveryId}/assign
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: deliveries
+      operation: read
+    - type: CosmosDB
+      target: deliveries
+      operation: write
+    - type: ServiceBus
+      target: delivery.driver-assigned
+      operation: publish
+    description: >-
+      Assigns an available driver to a delivery awaiting a driver. Validates the delivery is in AwaitingDriver
+      status, the driver has no active deliveries, and the driver is within 5km of the restaurant (Haversine
+      formula). Publishes a DriverAssigned event on success.
+    related_aggregate: Delivery
+    command_or_query: command
+  - name: UpdateDriverLocationFunction
+    bounded_context: Delivery
+    trigger_type: HTTP
+    trigger_details:
+      method: PUT
+      route: deliveries/{deliveryId}/location
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: deliveries
+      operation: read
+    - type: CosmosDB
+      target: deliveries
+      operation: write
+    description: >-
+      Driver sends a location ping during delivery. Updates the driver location and recalculates the estimated
+      arrival time. Only accepted for deliveries in DriverAssigned or PickedUp status and only from the
+      assigned driver.
+    related_aggregate: Delivery
+    command_or_query: command
+  - name: ConfirmPickupFunction
+    bounded_context: Delivery
+    trigger_type: HTTP
+    trigger_details:
+      method: POST
+      route: deliveries/{deliveryId}/pickup
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: deliveries
+      operation: read
+    - type: CosmosDB
+      target: deliveries
+      operation: write
+    description: >-
+      Driver confirms they have picked up the food from the restaurant. Transitions the delivery status
+      from DriverAssigned to PickedUp. Validates the driver ID matches the assigned driver.
+    related_aggregate: Delivery
+    command_or_query: command
+  - name: CompleteDeliveryFunction
+    bounded_context: Delivery
+    trigger_type: HTTP
+    trigger_details:
+      method: POST
+      route: deliveries/{deliveryId}/complete
+      auth_level: function
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: deliveries
+      operation: read
+    - type: CosmosDB
+      target: deliveries
+      operation: write
+    - type: ServiceBus
+      target: delivery.completed
+      operation: publish
+    description: >-
+      Driver confirms delivery to the customer. Transitions the delivery status from PickedUp to Delivered.
+      Validates the driver ID matches the assigned driver. Publishes a DeliveryCompleted event with SLA
+      breach information.
+    related_aggregate: Delivery
+    command_or_query: command
+  - name: HandleOrderReadyForPickupFunction
+    bounded_context: Delivery
+    trigger_type: ServiceBus
+    trigger_details:
+      topic: restaurant.order-ready
+      subscription: delivery-context
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: deliveries
+      operation: write
+    description: >-
+      Handles the OrderReadyForPickup event from the Restaurant context. Creates a new Delivery in AwaitingDriver
+      status with the restaurant address as the pickup location and the order delivery address as the
+      dropoff location.
+    related_aggregate: Delivery
+    command_or_query: command
+  - name: HandleOrderCancelledDeliveryFunction
+    bounded_context: Delivery
+    trigger_type: ServiceBus
+    trigger_details:
+      topic: orders.cancelled
+      subscription: delivery-context
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: deliveries
+      operation: read
+    - type: CosmosDB
+      target: deliveries
+      operation: write
+    description: >-
+      Handles the OrderCancelled event from the Orders context. If the delivery is in AwaitingDriver status,
+      cancels the delivery. If a driver is already assigned or has picked up, logs a warning since the
+      driver should be notified out of band.
+    related_aggregate: Delivery
+    command_or_query: command
+  - name: UnassignedDeliveryCheckFunction
+    bounded_context: Delivery
+    trigger_type: Timer
+    trigger_details:
+      schedule: '*/30 * * * * *'
+    input_bindings: []
+    output_bindings: []
+    downstream_dependencies:
+    - type: CosmosDB
+      target: deliveries
+      operation: read
+    description: >-
+      Runs every 30 seconds. Queries the deliveries container for all deliveries in AwaitingDriver status
+      that have been waiting longer than 5 minutes. For each match, logs a warning and increments a metric
+      counter. This function does not auto-assign drivers. It exists for operational monitoring only.
+    related_aggregate: Delivery
+    command_or_query: query

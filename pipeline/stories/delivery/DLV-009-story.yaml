@@ -1,0 +1,68 @@
+story:
+  id: "DLV-009-STORY"
+  ac_node_ref: "DLV-009"
+  bounded_context: "Delivery"
+  epic: "Delivery Lifecycle Management"
+  feature: "Delivery Cancellation Handling"
+  title: "Handle OrderCancelled event to cancel awaiting deliveries"
+  user_story: >
+    As the system, I need to consume the OrderCancelled event from the Orders
+    context so that deliveries still awaiting a driver are cancelled, and
+    in-progress deliveries are flagged with a warning for out-of-band driver
+    notification.
+  acceptance_criteria:
+    - id: "DLV-009-AC-01"
+      given: >
+        An OrderCancelled event is received from the Orders context and the
+        event payload contains orderId, orderNumber, restaurantId, and
+        cancelledAt timestamp and a delivery may or may not exist for this
+        orderId
+      when: >
+        The event is processed by HandleOrderCancelledDeliveryFunction
+      then: >
+        If a delivery exists for this orderId and is in AwaitingDriver status,
+        the delivery is cancelled (status set to Cancelled and document
+        updated)
+    - id: "DLV-009-AC-02"
+      given: >
+        A delivery exists for the orderId and a driver is already assigned or
+        has picked up
+      when: >
+        The event is processed by HandleOrderCancelledDeliveryFunction
+      then: >
+        A warning is logged indicating the driver should be notified out of
+        band
+    - id: "DLV-009-AC-03"
+      given: >
+        No delivery exists for this orderId
+      when: >
+        The event is processed by HandleOrderCancelledDeliveryFunction
+      then: >
+        The event is silently discarded (the order may have been cancelled
+        before food was ready)
+  error_scenarios:
+    - id: "DLV-009-ERR-01"
+      condition: "Duplicate event (eventId already processed)"
+      expected_behaviour: "Event is silently discarded (idempotent handling)"
+      error_code: "N/A"
+  story_dependencies:
+    - story_id: "ORD-002-STORY"
+      reason: "Consumes the OrderCancelled event produced when a customer cancels an order"
+    - story_id: "DLV-001-STORY"
+      reason: "A delivery may have been created via OrderReadyForPickup before the cancellation arrives"
+  story_type: "event-handler"
+  estimated_points: 2
+  ddd_pattern: "domain_event_handler"
+  ddd_notes: >
+    Consumes OrderCancelled integration event from Orders context. Delivery
+    lookup is by orderId, not deliveryId, requiring cross-partition query or
+    orderId-to-deliveryId mapping. If the delivery is in DriverAssigned or
+    PickedUp status, it is not cancelled; driver notification is handled out
+    of band. Must be idempotent using eventId. No domain events raised.
+  azure_function: "HandleOrderCancelledDeliveryFunction"
+  trigger_type: "ServiceBus Topic"
+  traceability:
+    fdd_sections:
+      - "5.6 Domain Events Consumed - OrderCancelled"
+    ac_node_ids:
+      - "DLV-009"

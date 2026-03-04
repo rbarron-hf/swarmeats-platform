@@ -1,0 +1,72 @@
+story:
+  id: "DLV-001-STORY"
+  ac_node_ref: "DLV-001"
+  bounded_context: "Delivery"
+  epic: "Delivery Lifecycle Management"
+  feature: "Delivery Creation"
+  title: "Handle OrderReadyForPickup event to create a new delivery"
+  user_story: >
+    As the system, I need to consume the OrderReadyForPickup event from the
+    Restaurant context so that a new Delivery aggregate is created in
+    AwaitingDriver status and a driver can be assigned to collect the food.
+  acceptance_criteria:
+    - id: "DLV-001-AC-01"
+      given: >
+        An OrderReadyForPickup event is received from the Restaurant context
+        and the event payload contains orderId, restaurantId, restaurantAddress
+        (street, city, postcode, latitude, longitude), and readyAt timestamp
+        and the event payload contains the order delivery address (street,
+        city, postcode, latitude, longitude)
+      when: >
+        The event is processed by HandleOrderReadyForPickupFunction
+      then: >
+        A new Delivery aggregate is created in AwaitingDriver status
+    - id: "DLV-001-AC-02"
+      given: >
+        An OrderReadyForPickup event is received with valid addresses
+      when: >
+        The event is processed by HandleOrderReadyForPickupFunction
+      then: >
+        The Delivery Route is set with pickup = restaurant address and
+        dropoff = order delivery address
+    - id: "DLV-001-AC-03"
+      given: >
+        An OrderReadyForPickup event is received
+      when: >
+        The event is processed by HandleOrderReadyForPickupFunction
+      then: >
+        The Delivery document is stored in the deliveries Cosmos DB container
+        with sentinel partition key value 'unassigned'
+    - id: "DLV-001-AC-04"
+      given: >
+        An OrderReadyForPickup event is received
+      when: >
+        The event is processed by HandleOrderReadyForPickupFunction
+      then: >
+        The readyAt timestamp from the event is recorded on the Delivery for
+        SLA tracking
+  error_scenarios:
+    - id: "DLV-001-ERR-01"
+      condition: "Duplicate event (eventId already processed)"
+      expected_behaviour: "Event is silently discarded (idempotent handling)"
+      error_code: "N/A"
+  story_dependencies:
+    - story_id: "RST-007-STORY"
+      reason: "Consumes the OrderReadyForPickup event produced when restaurant staff mark food as ready"
+  story_type: "event-handler"
+  estimated_points: 3
+  ddd_pattern: "domain_event_handler"
+  ddd_notes: >
+    Consumes OrderReadyForPickup integration event from Restaurant context.
+    Creates a new Delivery aggregate with Route value object containing
+    pickup and dropoff addresses. Uses sentinel partition key 'unassigned'
+    until a driver is assigned, at which point the document is migrated.
+    Must be idempotent using eventId.
+  azure_function: "HandleOrderReadyForPickupFunction"
+  trigger_type: "ServiceBus Topic"
+  traceability:
+    fdd_sections:
+      - "5.6 Domain Events Consumed - OrderReadyForPickup"
+      - "5.8 Cosmos DB"
+    ac_node_ids:
+      - "DLV-001"

@@ -1,0 +1,34 @@
+ac_node:
+  id: "DLV-007"
+  bounded_context: "Delivery"
+  aggregate_root: "Delivery"
+  behaviour_name: "Get Estimated Arrival"
+  trigger: "HTTP GET /deliveries/{deliveryId}/eta"
+  azure_function: "GetEstimatedArrivalFunction"
+  given:
+    - "A delivery exists in the deliveries container"
+    - "A driver has been assigned to the delivery (delivery is in DriverAssigned or PickedUp status)"
+  when:
+    - "A GET request is made to /deliveries/{deliveryId}/eta"
+  then:
+    - "The estimated arrival time is returned based on the driver's last known location"
+    - "The last location update timestamp is included in the response"
+    - "HTTP 200 is returned with estimatedArrivalTime and lastLocationTimestamp"
+  error_conditions:
+    - condition: "Delivery not found"
+      expected: "HTTP 404 returned"
+      error_code: "DELIVERY_NOT_FOUND"
+    - condition: "No driver assigned yet (delivery in AwaitingDriver status)"
+      expected: "HTTP 409 returned"
+      error_code: "DELIVERY_NO_DRIVER"
+  data_contracts:
+    request_schema: "Path parameter: deliveryId (Guid)"
+    response_schema: "{ deliveryId: Guid, estimatedArrivalTime: DateTimeOffset, estimatedMinutes: int, lastLocationUpdate: DateTimeOffset }"
+    domain_events:
+      - event_name: ""
+        target: ""
+        payload_fields: []
+  dependencies: []
+  estimated_complexity: 1
+  story_type: "backend"
+  notes: "Simple read query that returns the pre-calculated estimated arrival from the Delivery aggregate. The ETA is updated on each driver location ping (DLV-003) and on initial driver assignment (DLV-002)."

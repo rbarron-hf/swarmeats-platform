@@ -1,0 +1,29 @@
+ac_node:
+  id: "DLV-006"
+  bounded_context: "Delivery"
+  aggregate_root: "Delivery"
+  behaviour_name: "Get Delivery Status"
+  trigger: "HTTP GET /deliveries/{deliveryId}"
+  azure_function: "GetDeliveryStatusFunction"
+  given:
+    - "A delivery exists in the deliveries container"
+  when:
+    - "A GET request is made to /deliveries/{deliveryId}"
+  then:
+    - "The full delivery is returned including status, driver location, route (pickup and dropoff addresses), and estimated arrival"
+    - "HTTP 200 is returned with the delivery object"
+  error_conditions:
+    - condition: "Delivery not found"
+      expected: "HTTP 404 returned"
+      error_code: "DELIVERY_NOT_FOUND"
+  data_contracts:
+    request_schema: "Path parameter: deliveryId (Guid)"
+    response_schema: "{ deliveryId: Guid, orderId: Guid, status: string, driverId: Guid | null, driverLocation: { latitude: decimal, longitude: decimal, recordedAt: DateTimeOffset } | null, route: { pickup: { street: string, city: string, postcode: string, latitude: decimal, longitude: decimal }, dropoff: { street: string, city: string, postcode: string, latitude: decimal, longitude: decimal } }, estimatedArrival: { estimatedArrivalTime: DateTimeOffset, estimatedMinutes: int } | null, createdAt: DateTimeOffset }"
+    domain_events:
+      - event_name: ""
+        target: ""
+        payload_fields: []
+  dependencies: []
+  estimated_complexity: 1
+  story_type: "backend"
+  notes: "Simple read query. Driver location, estimated arrival, and driverId may be null if the delivery is still in AwaitingDriver status. The function reads from the deliveries Cosmos DB container."

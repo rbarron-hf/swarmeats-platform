@@ -1,0 +1,89 @@
+self_assessment:
+  story_id: "RST-003"
+  behaviour_name: "Process Incoming Order"
+  bounded_context: "Restaurant"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary:
+    description: >
+      Service Bus triggered function that processes OrderPlaced events from the
+      Orders context. Creates a RestaurantOrder in Pending status after validating
+      operating hours (RST-R01) and menu item availability (RST-R02). Auto-rejects
+      with appropriate reason codes if validation fails. Idempotent via ExistsAsync check.
+      Most complex handler in the Restaurant context (complexity 5).
+    files_created:
+      - "src/Restaurant/Functions/EventHandlers/HandleOrderPlacedFunction.cs"
+      - "src/Restaurant/Domain/Events/Consumed/OrderPlacedEvent.cs"
+      - "tests/Restaurant.Tests/Unit/RST003Tests.cs"
+    files_reused:
+      - "src/Restaurant/Domain/Aggregates/RestaurantOrder.cs"
+      - "src/Restaurant/Domain/Aggregates/Menu.cs"
+      - "src/Restaurant/Infrastructure/Repositories/IMenuRepository.cs"
+      - "src/Restaurant/Infrastructure/Repositories/IRestaurantOrderRepository.cs"
+
+  acceptance_criteria:
+    - id: "RST-003-AC-01"
+      description: "RestaurantOrder created in Pending status when validations pass"
+      status: "implemented"
+      evidence: "HandleOrderPlacedFunction creates RestaurantOrder with Pending status and saves"
+    - id: "RST-003-AC-02"
+      description: "Handler validates operating hours per RST-R01"
+      status: "implemented"
+      evidence: "Menu.IsOpen() check with auto-reject RESTAURANT_CLOSED"
+    - id: "RST-003-AC-03"
+      description: "Handler validates item availability per RST-R02"
+      status: "implemented"
+      evidence: "Menu.GetUnavailableItemIds() check with auto-reject ITEM_UNAVAILABLE"
+    - id: "RST-003-AC-04"
+      description: "Auto-rejected orders raise OrderRejected domain event"
+      status: "implemented"
+      evidence: "RestaurantOrder.Reject() raises OrderRejected event via outbox"
+
+  error_conditions:
+    - id: "RST-003-ERR-01"
+      description: "Auto-reject with RESTAURANT_CLOSED when outside operating hours"
+      error_code: "RST-R01"
+      status: "implemented"
+      evidence: "Function checks menu.IsOpen() and calls order.Reject('RESTAURANT_CLOSED')"
+    - id: "RST-003-ERR-02"
+      description: "Auto-reject with ITEM_UNAVAILABLE when items not available"
+      error_code: "RST-R02"
+      status: "implemented"
+      evidence: "Function checks GetUnavailableItemIds and calls order.Reject('ITEM_UNAVAILABLE', unavailableIds)"
+    - id: "RST-003-ERR-03"
+      description: "Duplicate events silently discarded"
+      error_code: "DUPLICATE_EVENT"
+      status: "implemented"
+      evidence: "ExistsAsync check at start of handler"
+
+  domain_events:
+    - event_name: "OrderRejected"
+      target: "restaurant.order-rejected"
+      raised_on: "auto-rejection due to RST-R01 or RST-R02"
+
+  test_coverage:
+    unit_tests:
+      - "CreateRestaurantOrder_StartsInPendingStatus"
+      - "CreateRestaurantOrder_StoresSourceEventId"
+      - "Menu_IsOpen_WhenOutsideHours_ReturnsFalse"
+      - "Menu_IsOpen_WhenWithinHours_ReturnsTrue"
+      - "Menu_GetUnavailableItemIds_WhenItemUnavailable_ReturnsUnavailableIds"
+      - "Menu_GetUnavailableItemIds_WhenItemDoesNotExist_ReturnsUnavailableIds"
+      - "Menu_GetUnavailableItemIds_WhenAllAvailable_ReturnsEmpty"
+      - "RestaurantOrder_Reject_WithRestaurantClosed_TransitionsToRejectedAndRaisesEvent"
+      - "RestaurantOrder_Reject_WithItemUnavailable_IncludesUnavailableItemIds"
+    test_count: 9
+    all_tests_have_assertions: true
+
+  business_rules_enforced:
+    - "RST-R01: Operating hours validation"
+    - "RST-R02: Menu item availability validation"
+
+  quality_checklist:
+    all_logic_in_aggregate: true
+    named_state_transitions: true
+    domain_events_inside_aggregate: true
+    outbox_pattern_used: true
+    immutable_value_objects: true
+    xml_doc_comments: true
+    idempotent_handlers: true

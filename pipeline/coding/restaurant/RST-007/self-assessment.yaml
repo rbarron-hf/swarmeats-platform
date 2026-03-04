@@ -1,0 +1,76 @@
+self_assessment:
+  story_id: "RST-007"
+  behaviour_name: "Mark Ready for Pickup"
+  bounded_context: "Restaurant"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary:
+    description: >
+      HTTP PUT endpoint (shared with RST-006 via UpdatePreparationStatusFunction)
+      for marking a restaurant order as ReadyForPickup. Uses MediatR command pattern.
+      State transition Preparing -> ReadyForPickup enforced inside the aggregate.
+      Raises OrderReadyForPickup event with restaurant address for the Delivery context.
+      Handler loads Menu to get the restaurant address for the event payload.
+    files_created:
+      - "src/Restaurant/Domain/Commands/MarkReadyForPickupCommand.cs"
+      - "src/Restaurant/Domain/Commands/MarkReadyForPickupCommandHandler.cs"
+      - "src/Restaurant/Domain/Events/OrderReadyForPickup.cs"
+      - "tests/Restaurant.Tests/Unit/RST007Tests.cs"
+    files_reused:
+      - "src/Restaurant/Domain/Aggregates/RestaurantOrder.cs"
+      - "src/Restaurant/Domain/Aggregates/Menu.cs"
+      - "src/Restaurant/Infrastructure/Repositories/IRestaurantOrderRepository.cs"
+      - "src/Restaurant/Infrastructure/Repositories/IMenuRepository.cs"
+      - "src/Restaurant/Functions/UpdatePreparationStatusFunction.cs"
+
+  acceptance_criteria:
+    - id: "RST-007-AC-01"
+      description: "Order transitions from Preparing to ReadyForPickup"
+      status: "implemented"
+      evidence: "RestaurantOrder.MarkReadyForPickup() transitions status and sets ReadyAt"
+    - id: "RST-007-AC-02"
+      description: "OrderReadyForPickup event published with restaurant address"
+      status: "implemented"
+      evidence: "MarkReadyForPickup() calls AddDomainEvent with RestaurantAddress"
+    - id: "RST-007-AC-03"
+      description: "HTTP 200 returned with updated order"
+      status: "implemented"
+      evidence: "UpdatePreparationStatusFunction routes 'ReadyForPickup' to MarkReadyForPickupCommand"
+
+  error_conditions:
+    - id: "RST-007-ERR-01"
+      description: "HTTP 404 when order not found"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+      status: "implemented"
+      evidence: "RestaurantOrderNotFoundException caught and mapped to 404"
+    - id: "RST-007-ERR-02"
+      description: "HTTP 409 when invalid state transition"
+      error_code: "RESTAURANT_INVALID_TRANSITION"
+      status: "implemented"
+      evidence: "InvalidOrderStateException caught and mapped to 409"
+
+  domain_events:
+    - event_name: "OrderReadyForPickup"
+      target: "restaurant.order-ready"
+      raised_on: "successful transition to ReadyForPickup"
+
+  test_coverage:
+    unit_tests:
+      - "MarkReadyForPickup_WhenPreparing_TransitionsToReadyForPickup"
+      - "MarkReadyForPickup_WhenPreparing_RaisesOrderReadyForPickupEvent"
+      - "MarkReadyForPickup_WhenNotPreparing_ThrowsInvalidOrderStateException"
+      - "MarkReadyForPickup_WhenOrderNotFound_ThrowsRestaurantOrderNotFoundException"
+      - "MarkReadyForPickup_WhenSuccessful_ReturnsResultAndSaves"
+    test_count: 5
+    all_tests_have_assertions: true
+
+  business_rules_enforced: []
+
+  quality_checklist:
+    all_logic_in_aggregate: true
+    named_state_transitions: true
+    domain_events_inside_aggregate: true
+    outbox_pattern_used: true
+    immutable_value_objects: true
+    xml_doc_comments: true
+    idempotent_handlers: false

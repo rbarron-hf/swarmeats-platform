@@ -1,0 +1,60 @@
+self_assessment:
+  story_id: "DLV-001"
+  behaviour_name: "Handle OrderReadyForPickup Event"
+  bounded_context: "Delivery"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary: >
+    Implemented the HandleOrderReadyForPickupFunction as a Service Bus triggered
+    Azure Function that subscribes to the restaurant.order-ready topic. On receiving
+    an OrderReadyForPickup event, the function deserializes the event envelope,
+    performs an idempotency check by querying for existing deliveries with the same
+    orderId, creates a new DeliveryAggregate in AwaitingDriver status with the
+    restaurant address as pickup and order delivery address as dropoff, and persists
+    it to Cosmos DB with the 'unassigned' sentinel partition key.
+
+  files_created:
+    - "src/Delivery/Functions/EventHandlers/HandleOrderReadyForPickupFunction.cs"
+    - "src/Delivery/Domain/Events/Consumed/OrderReadyForPickupEvent.cs"
+    - "tests/Delivery.Tests/Unit/DLV001Tests.cs"
+
+  files_modified: []
+
+  acceptance_criteria_checklist:
+    - criterion: "New Delivery aggregate created in AwaitingDriver status"
+      met: true
+      evidence: "DeliveryAggregate constructor sets Status = DeliveryStatus.AwaitingDriver"
+    - criterion: "Route set with pickup = restaurant address and dropoff = delivery address"
+      met: true
+      evidence: "Function maps event addresses to Location value objects and creates Route"
+    - criterion: "Delivery stored in Cosmos DB with 'unassigned' partition key"
+      met: true
+      evidence: "SaveAsync uses DriverId (null) which maps to 'unassigned' partition in CosmosDeliveryRepository"
+    - criterion: "readyAt timestamp recorded for SLA tracking"
+      met: true
+      evidence: "readyAt from event payload passed to DeliveryAggregate constructor"
+    - criterion: "Duplicate events silently discarded"
+      met: true
+      evidence: "GetByOrderIdAsync check before creation in HandleOrderReadyForPickupFunction"
+
+  error_conditions_checklist:
+    - condition: "Duplicate event (eventId already processed)"
+      handled: true
+      evidence: "Idempotency check via GetByOrderIdAsync; duplicate events are completed without creating new delivery"
+
+  business_rules_enforced:
+    - rule_id: "N/A"
+      description: "No specific business rules enforced at creation time"
+      implementation: "Aggregate is created in valid initial state"
+
+  test_coverage:
+    total_tests: 4
+    passing_tests: 4
+    test_categories:
+      - category: "Aggregate creation"
+        count: 3
+      - category: "Idempotency"
+        count: 1
+
+  confidence_score: 95
+  notes: "Clean implementation following established Orders context patterns. Idempotency handled via orderId lookup."

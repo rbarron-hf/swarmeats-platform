@@ -1,0 +1,46 @@
+ac_node:
+  id: "ORD-004"
+  bounded_context: "Orders"
+  aggregate_root: "Order"
+  behaviour_name: "Get Orders by Customer"
+  trigger: "HTTP GET /orders?customerId={customerId}"
+  azure_function: "GetOrdersByCustomerFunction"
+  given:
+    - "A valid customerId (non-empty Guid) is provided as a query parameter"
+    - "The customer has one or more orders in the Cosmos DB orders container"
+  when:
+    - "GET /orders?customerId={customerId} is called, optionally with continuationToken query parameter"
+  then:
+    - "A paginated list of order summaries is returned, sorted by creation date descending"
+    - "Each summary includes orderId, orderNumber, restaurant name, total, status, and created date"
+    - "If more results exist, a continuationToken is included for the next page"
+    - "HTTP 200 is returned with the array of order summaries and optional continuation token"
+  error_conditions:
+    - condition: "customerId query parameter is empty or invalid Guid"
+      expected: "HTTP 400 returned with error"
+      error_code: "ORDER_INVALID_CUSTOMER"
+  data_contracts:
+    request_schema: |
+      {
+        "customerId": "Guid (query parameter, required)",
+        "continuationToken": "string (query parameter, optional)"
+      }
+    response_schema: |
+      {
+        "orders": [
+          {
+            "orderId": "Guid",
+            "orderNumber": "string",
+            "restaurantName": "string",
+            "total": "decimal",
+            "status": "string",
+            "createdAt": "DateTimeOffset"
+          }
+        ],
+        "continuationToken": "string | null"
+      }
+    domain_events: []
+  dependencies: []
+  estimated_complexity: 2
+  story_type: "query"
+  notes: "Reads from the orders Cosmos DB container partitioned by customerId. Supports pagination via Cosmos DB continuation tokens. Returns order summaries, not full order details."

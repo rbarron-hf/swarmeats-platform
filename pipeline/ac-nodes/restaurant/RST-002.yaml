@@ -1,0 +1,28 @@
+ac_node:
+  id: "RST-002"
+  bounded_context: "Restaurant"
+  aggregate_root: "RestaurantOrder"
+  behaviour_name: "Get Active Orders"
+  trigger: "HTTP GET /restaurants/{restaurantId}/orders?status={status}"
+  azure_function: "GetActiveOrdersFunction"
+  given:
+    - "A restaurant has orders in various statuses (Pending, Accepted, Preparing, ReadyForPickup, Rejected) in the restaurant-orders container"
+  when:
+    - "A GET request is received for /restaurants/{restaurantId}/orders with an optional status query parameter"
+  then:
+    - "A filtered list of restaurant order summaries is returned with HTTP 200"
+    - "If status parameter is provided, only orders matching that status are returned"
+    - "If status parameter is omitted, all active orders for the restaurant are returned"
+    - "Each summary includes orderId, orderNumber, status, lineItems, and timestamps"
+  error_conditions:
+    - condition: "The status query parameter is provided but is not a valid RestaurantOrderStatus value (Pending, Accepted, Preparing, ReadyForPickup, Rejected)"
+      expected: "HTTP 400 returned with error body"
+      error_code: "RESTAURANT_INVALID_STATUS"
+  data_contracts:
+    request_schema: "GET /restaurants/{restaurantId}/orders?status={status} — no request body; restaurantId is a Guid path parameter; status is an optional query parameter (Pending|Accepted|Preparing|ReadyForPickup|Rejected)"
+    response_schema: "HTTP 200: { orders: [ { orderId: Guid, orderNumber: string, status: string, lineItems: array, createdAt: DateTimeOffset, updatedAt: DateTimeOffset } ] }"
+    domain_events: []
+  dependencies: []
+  estimated_complexity: 2
+  story_type: "backend"
+  notes: "Read-only query against the restaurant-orders Cosmos DB container partitioned by /restaurantId. Used by the restaurant dashboard. No domain events raised. Slightly more complex than RST-001 due to optional status filtering and query construction."

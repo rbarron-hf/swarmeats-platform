@@ -1,0 +1,66 @@
+ac_node:
+  id: "ORD-003"
+  bounded_context: "Orders"
+  aggregate_root: "Order"
+  behaviour_name: "Get Order by ID"
+  trigger: "HTTP GET /orders/{orderId}"
+  azure_function: "GetOrderFunction"
+  given:
+    - "An order exists with the specified orderId in the Cosmos DB orders container"
+  when:
+    - "GET /orders/{orderId} is called"
+  then:
+    - "The full order is returned including line items, current status, and timestamps for each state transition"
+    - "HTTP 200 is returned with the complete order object"
+  error_conditions:
+    - condition: "Order with the specified orderId does not exist"
+      expected: "HTTP 404 returned with error"
+      error_code: "ORDER_NOT_FOUND"
+  data_contracts:
+    request_schema: |
+      {
+        "orderId": "Guid (path parameter)"
+      }
+    response_schema: |
+      {
+        "orderId": "Guid",
+        "orderNumber": "string",
+        "customerId": "Guid",
+        "restaurantId": "Guid",
+        "status": "string",
+        "lineItems": [
+          {
+            "menuItemId": "Guid",
+            "menuItemName": "string",
+            "quantity": "int",
+            "unitPrice": "decimal"
+          }
+        ],
+        "deliveryAddress": {
+          "street": "string",
+          "city": "string",
+          "postcode": "string",
+          "latitude": "decimal",
+          "longitude": "decimal"
+        },
+        "orderTotal": {
+          "subtotal": "decimal",
+          "deliveryFee": "decimal",
+          "total": "decimal"
+        },
+        "timestamps": {
+          "placedAt": "DateTimeOffset",
+          "acceptedAt": "DateTimeOffset | null",
+          "preparingAt": "DateTimeOffset | null",
+          "readyForPickupAt": "DateTimeOffset | null",
+          "inDeliveryAt": "DateTimeOffset | null",
+          "deliveredAt": "DateTimeOffset | null",
+          "rejectedAt": "DateTimeOffset | null",
+          "cancelledAt": "DateTimeOffset | null"
+        }
+      }
+    domain_events: []
+  dependencies: []
+  estimated_complexity: 1
+  story_type: "query"
+  notes: "Simple read query against Cosmos DB orders container. No state changes or events. Returns the full aggregate state including all status transition timestamps."

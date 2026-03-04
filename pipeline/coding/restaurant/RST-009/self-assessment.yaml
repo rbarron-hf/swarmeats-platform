@@ -1,0 +1,63 @@
+self_assessment:
+  story_id: "RST-009"
+  behaviour_name: "Active Order Dashboard Projection"
+  bounded_context: "Restaurant"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary:
+    description: >
+      Cosmos DB Change Feed triggered function that projects RestaurantOrder changes
+      to a dashboard-optimised read model in the dashboard-orders container. This is
+      a CQRS read-side projection for query performance optimisation. No domain events
+      raised. Uses the restaurant-orders-leases container for checkpoint tracking.
+    files_created:
+      - "src/Restaurant/Functions/EventHandlers/ActiveOrderDashboardFunction.cs"
+      - "src/Restaurant/Infrastructure/Models/DashboardOrderProjection.cs"
+      - "tests/Restaurant.Tests/Unit/RST009Tests.cs"
+    files_reused:
+      - "src/Restaurant/Domain/Aggregates/RestaurantOrder.cs"
+
+  acceptance_criteria:
+    - id: "RST-009-AC-01"
+      description: "Changed documents are projected to dashboard-orders container"
+      status: "implemented"
+      evidence: "Function upserts DashboardOrderProjection for each changed document"
+    - id: "RST-009-AC-02"
+      description: "Projection includes status, line items, timestamps, restaurant ID"
+      status: "implemented"
+      evidence: "DashboardOrderProjection contains all required denormalized fields"
+    - id: "RST-009-AC-03"
+      description: "No domain events raised"
+      status: "implemented"
+      evidence: "Function only writes to dashboard container, no events"
+
+  error_conditions:
+    - id: "RST-009-ERR-01"
+      description: "Transient failures retry via change feed checkpoint"
+      error_code: "CHANGE_FEED_TRANSIENT_ERROR"
+      status: "implemented"
+      evidence: "Per-document try/catch with logging; change feed retries from checkpoint"
+
+  domain_events: []
+
+  test_coverage:
+    unit_tests:
+      - "DashboardProjection_MapsIdentityFieldsCorrectly"
+      - "DashboardProjection_MapsStatusCorrectly (6 theory cases)"
+      - "DashboardProjection_MapsLineItemsCorrectly"
+      - "DashboardProjection_IncludesEstimatedPrepTime_WhenAccepted"
+      - "DashboardProjection_HasNullPrepTime_WhenPending"
+      - "DashboardProjection_HasDefaultTtlOf30Days"
+    test_count: 6
+    all_tests_have_assertions: true
+
+  business_rules_enforced: []
+
+  quality_checklist:
+    all_logic_in_aggregate: false
+    named_state_transitions: false
+    domain_events_inside_aggregate: false
+    outbox_pattern_used: false
+    immutable_value_objects: true
+    xml_doc_comments: true
+    idempotent_handlers: true

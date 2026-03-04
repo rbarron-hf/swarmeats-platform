@@ -1,0 +1,85 @@
+self_assessment:
+  story_id: "ORD-003"
+  bounded_context: "Orders"
+  agent: "Layer 5 Coding Agent"
+  round: 1
+  assessed_at: "2026-03-03T19:30:00Z"
+
+  files_produced:
+    - path: "src/Orders/Domain/Queries/GetOrderQuery.cs"
+      purpose: "MediatR IRequest with response DTOs (GetOrderResponse + nested DTOs for line items, address, totals, timestamps)"
+      status: "complete"
+
+    - path: "src/Orders/Domain/Queries/GetOrderQueryHandler.cs"
+      purpose: "MediatR handler that loads from IOrderRepository, throws if null, maps aggregate to response DTO"
+      status: "complete"
+
+    - path: "src/Orders/Functions/GetOrderFunction.cs"
+      purpose: "HTTP GET trigger at /orders/{orderId}, isolated worker model, MediatR dispatch, exception-to-HTTP mapping"
+      status: "complete"
+
+    - path: "tests/Orders.Tests/Unit/ORD003Tests.cs"
+      purpose: "5 xUnit tests covering full response mapping (details, line items, address/totals, timestamps) and 404 error"
+      status: "complete"
+
+  files_reused:
+    - path: "src/Orders/Domain/Aggregates/Order.cs"
+      reason: "Existing aggregate root — query reads its full state"
+    - path: "src/Orders/Infrastructure/Repositories/IOrderRepository.cs"
+      reason: "Existing GetByIdAsync method used by the query handler"
+    - path: "src/Orders/Infrastructure/Repositories/CosmosOrderRepository.cs"
+      reason: "Existing Cosmos DB implementation of the repository"
+    - path: "src/Orders/Domain/Exceptions/OrderNotFoundException.cs"
+      reason: "Existing domain exception for 404 case"
+    - path: "src/Orders/Functions/Models/ErrorResponse.cs"
+      reason: "Shared error response DTO extracted during ORD-002 Layer 6 review"
+
+  acceptance_criteria_coverage:
+    - id: "ORD-003-AC-01"
+      description: "Full order returned with line items, status, and timestamps"
+      covered_by:
+        - "GetOrder_WhenOrderExists_ReturnsFullOrderDetails"
+        - "GetOrder_WhenOrderExists_ReturnsAllLineItems"
+        - "GetOrder_WhenOrderExists_ReturnsDeliveryAddressAndTotals"
+        - "GetOrder_WhenOrderExists_ReturnsTimestampsCorrectly"
+      status: "covered"
+
+    - id: "ORD-003-AC-02"
+      description: "HTTP 200 returned with complete order object"
+      covered_by: "GetOrder_WhenOrderExists_ReturnsFullOrderDetails"
+      status: "covered"
+
+  error_scenario_coverage:
+    - id: "ORD-003-ERR-01"
+      description: "Order not found returns HTTP 404"
+      covered_by: "GetOrder_WhenOrderNotFound_ThrowsOrderNotFoundException"
+      status: "covered"
+
+  business_rules_enforced: []
+
+  ddd_compliance:
+    domain_layer_zero_infrastructure_refs: true
+    business_rule_in_aggregate: true  # N/A for query, but existing aggregate rules untouched
+    handler_delegates_to_aggregate: true  # Handler only reads, no mutation
+    function_only_http_concerns: true
+    query_produces_no_side_effects: true
+
+  test_summary:
+    total_tests: 5
+    handler_level_tests: 5
+    all_tests_have_real_implementations: true
+    mocking_library: "Moq"
+    assertion_library: "FluentAssertions"
+
+  known_gaps:
+    - description: "No function-level integration test (would require TestServer setup)"
+      severity: "low"
+      reason: "Handler tests verify all mapping logic; function is thin HTTP wrapper"
+
+  overall_confidence: "high"
+  notes: >
+    Simple read query with no business logic. All 5 tests have complete Arrange/Act/Assert
+    implementations. The handler loads the Order aggregate via IOrderRepository.GetByIdAsync
+    (reused from ORD-002) and maps every field to a response DTO. The response schema matches
+    the AC node data contract including nested line items, delivery address, order totals,
+    and all 9 state transition timestamps. No domain events are produced.

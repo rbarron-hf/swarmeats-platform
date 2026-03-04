@@ -1,0 +1,107 @@
+story:
+  id: "RST-003-STORY"
+  ac_node_ref: "RST-003"
+  bounded_context: "Restaurant"
+  epic: "Restaurant Order Management"
+  feature: "Incoming Order Processing"
+  title: "Process incoming OrderPlaced event and validate menu items"
+  user_story: >
+    As the system, I need to consume the OrderPlaced event from the Orders
+    context so that a RestaurantOrder is created for staff review, or
+    auto-rejected if the restaurant is closed or items are unavailable.
+  acceptance_criteria:
+    - id: "RST-003-AC-01"
+      given: >
+        An OrderPlaced event is received from the Orders context on the
+        orders.placed topic and the restaurant has an active menu in the menus
+        Cosmos DB container with operating hours and menu items
+      when: >
+        The HandleOrderPlacedFunction processes the OrderPlaced event
+      then: >
+        The handler reads the restaurant menu from the menus container using
+        the restaurantId
+    - id: "RST-003-AC-02"
+      given: >
+        The restaurant menu has been loaded successfully
+      when: >
+        The HandleOrderPlacedFunction processes the OrderPlaced event
+      then: >
+        The handler validates the restaurant is within operating hours (current
+        time between openingTime and closingTime UTC on the Menu aggregate)
+        per RST-R01
+    - id: "RST-003-AC-03"
+      given: >
+        The restaurant is within operating hours
+      when: >
+        The HandleOrderPlacedFunction processes the OrderPlaced event
+      then: >
+        The handler validates every lineItem references a menuItemId that
+        exists in the menu and is marked as available per RST-R02
+    - id: "RST-003-AC-04"
+      given: >
+        Both operating hours and menu item availability validations pass
+      when: >
+        The HandleOrderPlacedFunction processes the OrderPlaced event
+      then: >
+        A new RestaurantOrder document is created in the restaurant-orders
+        container with status Pending
+    - id: "RST-003-AC-05"
+      given: >
+        The restaurant is outside operating hours
+      when: >
+        The HandleOrderPlacedFunction processes the OrderPlaced event
+      then: >
+        The RestaurantOrder is created and immediately auto-rejected with
+        reason code RESTAURANT_CLOSED, and an OrderRejected event is published
+        to restaurant.order-rejected
+    - id: "RST-003-AC-06"
+      given: >
+        Any line item references an unavailable or non-existent menu item
+      when: >
+        The HandleOrderPlacedFunction processes the OrderPlaced event
+      then: >
+        The RestaurantOrder is created and immediately auto-rejected with
+        reason code ITEM_UNAVAILABLE, and an OrderRejected event is published
+        with the unavailableItemIds array populated
+    - id: "RST-003-AC-07"
+      given: >
+        Any event is received
+      when: >
+        The HandleOrderPlacedFunction processes the OrderPlaced event
+      then: >
+        The handler must be idempotent using eventId to prevent duplicate
+        processing
+  error_scenarios:
+    - id: "RST-003-ERR-01"
+      condition: "Restaurant is outside operating hours (current UTC time not between openingTime and closingTime on Menu)"
+      expected_behaviour: "RestaurantOrder auto-rejected; OrderRejected event raised with reasonCode RESTAURANT_CLOSED"
+      error_code: "RST-R01"
+    - id: "RST-003-ERR-02"
+      condition: "One or more line items reference a menu item that does not exist or is not marked as available"
+      expected_behaviour: "RestaurantOrder auto-rejected; OrderRejected event raised with reasonCode ITEM_UNAVAILABLE and unavailableItemIds populated"
+      error_code: "RST-R02"
+    - id: "RST-003-ERR-03"
+      condition: "Duplicate event (same eventId already processed)"
+      expected_behaviour: "Event silently discarded; no state change"
+      error_code: "DUPLICATE_EVENT"
+  story_dependencies:
+    - story_id: "ORD-001-STORY"
+      reason: "Consumes the OrderPlaced event produced when a customer places an order"
+  story_type: "event-handler"
+  estimated_points: 5
+  ddd_pattern: "domain_event_handler"
+  ddd_notes: >
+    Most complex node in the Restaurant context. Consumes OrderPlaced
+    integration event, reads Menu aggregate for validation, creates
+    RestaurantOrder aggregate, and conditionally raises OrderRejected event
+    via outbox pattern. Validates RST-R01 (operating hours) and RST-R02
+    (menu item availability). Must be idempotent using eventId.
+  azure_function: "HandleOrderPlacedFunction"
+  trigger_type: "ServiceBus Topic"
+  traceability:
+    fdd_sections:
+      - "4.4 Business Rules (RST-R01, RST-R02)"
+      - "4.6 Domain Events Raised - OrderRejected"
+      - "4.7 Domain Events Consumed - OrderPlaced"
+    ac_node_ids:
+      - "RST-003"

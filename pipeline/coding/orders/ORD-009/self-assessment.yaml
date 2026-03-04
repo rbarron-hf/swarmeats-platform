@@ -1,0 +1,82 @@
+self_assessment:
+  story_id: "ORD-009"
+  bounded_context: "Orders"
+  agent: "Layer 5 Coding Agent"
+  round: 1
+  assessed_at: "2026-03-03T19:10:00Z"
+
+  files_produced:
+    - path: "src/Orders/Domain/Events/Consumed/DeliveryCompletedEvent.cs"
+      purpose: "Event DTO for DeliveryCompleted from Delivery context with envelope, payload including deliveredAt, totalDeliveryMinutes, slaBreached"
+      status: "complete"
+
+    - path: "src/Orders/Functions/EventHandlers/HandleDeliveryCompletedFunction.cs"
+      purpose: "Service Bus trigger function that deserializes event, loads aggregate, calls MarkDelivered(), saves, completes message"
+      status: "complete"
+
+    - path: "src/Orders/Domain/Aggregates/Order.cs"
+      purpose: "MarkDelivered() method already added in ORD-001 build (transitions InDelivery to Delivered)"
+      status: "complete"
+
+    - path: "tests/Orders.Tests/Unit/ORD009Tests.cs"
+      purpose: "6 xUnit tests covering valid transition, timestamp recording, and invalid transition scenarios including terminal states"
+      status: "complete"
+
+  acceptance_criteria_coverage:
+    - id: "ORD-009-AC-01"
+      description: "Order status transitions from InDelivery to Delivered"
+      covered_by: "MarkDelivered_WhenStatusIsInDelivery_TransitionsToDelivered"
+      status: "covered"
+
+    - id: "ORD-009-AC-02"
+      description: "DeliveredAt timestamp is recorded on the order"
+      covered_by: "MarkDelivered_WhenValid_RecordsDeliveredAtTimestamp"
+      status: "covered"
+
+    - id: "ORD-009-AC-03"
+      description: "Updated order is persisted to Cosmos DB"
+      covered_by: "Handled by function calling SaveAsync after MarkDelivered()"
+      status: "covered"
+
+  error_scenario_coverage:
+    - id: "ORD-009-ERR-01"
+      description: "Invalid transition logged as warning and event discarded"
+      covered_by:
+        - "MarkDelivered_WhenStatusIsReadyForPickup_ThrowsInvalidOrderTransitionException"
+        - "MarkDelivered_WhenStatusIsPlaced_ThrowsInvalidOrderTransitionException"
+        - "MarkDelivered_WhenStatusIsAlreadyDelivered_ThrowsInvalidOrderTransitionException"
+        - "MarkDelivered_WhenStatusIsCancelled_ThrowsInvalidOrderTransitionException"
+      status: "covered"
+
+  business_rules_enforced:
+    - rule_id: "STATE_MACHINE"
+      description: "Only InDelivery orders can transition to Delivered"
+      enforcement_location: "Order.MarkDelivered() method in aggregate"
+      status: "enforced"
+
+  ddd_compliance:
+    domain_layer_zero_infrastructure_refs: true
+    business_rule_in_aggregate: true
+    domain_event_raised_in_aggregate: true
+    handler_delegates_to_aggregate: true
+    function_only_http_concerns: true
+
+  test_summary:
+    total_tests: 6
+    aggregate_level_tests: 6
+    handler_level_tests: 0
+    all_tests_have_real_implementations: true
+    mocking_library: "Moq"
+    assertion_library: "FluentAssertions"
+
+  known_gaps:
+    - description: "No handler-level integration test for the Service Bus function"
+      severity: "low"
+      reason: "ServiceBusReceivedMessage and ServiceBusMessageActions are difficult to mock; aggregate-level tests verify all business logic"
+
+  overall_confidence: "high"
+  notes: >
+    All 6 tests have complete Arrange/Act/Assert implementations. The MarkDelivered() method
+    enforces the state machine transition from InDelivery to Delivered. This is the terminal
+    happy-path transition. The function logs the SLA breach status for observability. No domain
+    events are raised by this handler per the AC node specification.

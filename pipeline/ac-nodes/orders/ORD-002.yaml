@@ -1,0 +1,58 @@
+ac_node:
+  id: "ORD-002"
+  bounded_context: "Orders"
+  aggregate_root: "Order"
+  behaviour_name: "Cancel Order"
+  trigger: "HTTP POST /orders/{orderId}/cancel"
+  azure_function: "CancelOrderFunction"
+  given:
+    - "An order exists with the specified orderId"
+    - "The order has status Placed (before restaurant has accepted)"
+  when:
+    - "POST /orders/{orderId}/cancel is called"
+  then:
+    - "The order status transitions from Placed to Cancelled"
+    - "The updated order is persisted to Cosmos DB orders container"
+    - "An OrderCancelled domain event is published to Service Bus topic orders.cancelled via the outbox pattern"
+    - "HTTP 200 is returned with the updated order showing status Cancelled"
+  error_conditions:
+    - condition: "Order with the specified orderId does not exist"
+      expected: "HTTP 404 returned with error"
+      error_code: "ORDER_NOT_FOUND"
+    - condition: "Order status is not Placed (e.g. Accepted, Delivered, already Cancelled)"
+      expected: "HTTP 409 returned with error"
+      error_code: "ORDER_CANNOT_CANCEL"
+  data_contracts:
+    request_schema: |
+      {
+        "orderId": "Guid (path parameter)"
+      }
+    response_schema: |
+      {
+        "orderId": "Guid",
+        "orderNumber": "string",
+        "status": "Cancelled",
+        "cancelledAt": "DateTimeOffset"
+      }
+    domain_events:
+      - event_name: "OrderCancelled"
+        target: "orders.cancelled"
+        payload_fields:
+          - name: "orderId"
+            type: "Guid"
+          - name: "orderNumber"
+            type: "string"
+          - name: "restaurantId"
+            type: "Guid"
+          - name: "cancelledAt"
+            type: "DateTimeOffset"
+  dependencies:
+    - context: "Restaurant"
+      type: "async-downstream"
+      description: "OrderCancelled event consumed by Restaurant context to cancel pending RestaurantOrder"
+    - context: "Delivery"
+      type: "async-downstream"
+      description: "OrderCancelled event consumed by Delivery context to cancel AwaitingDriver deliveries"
+  estimated_complexity: 3
+  story_type: "command"
+  notes: "Enforces business rule ORD-R05: cancellation only permitted while status is Placed. Reads the order first to validate status, then writes the update. Uses outbox pattern for reliable event publishing."

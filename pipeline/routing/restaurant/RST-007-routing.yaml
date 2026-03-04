@@ -1,0 +1,17 @@
+routing_decision:
+  story_id: "RST-007"
+  bounded_context: "Restaurant"
+  scores:
+    ac_node_count: 0        # 1 AC node -> 0
+    file_surface_area: 1    # Shared handler function (with RST-006), state transition, OrderReadyForPickup event, outbox, restaurant address loader, DTOs, tests -> ~7 files -> 1
+    integration_boundaries: 0  # No external dependencies; event is published downstream to Delivery -> 0
+    shared_aggregate: 0     # RestaurantOrder owned by Restaurant context -> 0
+    error_condition_density: 0  # 2 error conditions (RESTAURANT_ORDER_NOT_FOUND, RESTAURANT_INVALID_TRANSITION) -> 0
+    domain_logic_depth: 1   # State transition Preparing -> ReadyForPickup, event raising with restaurant address lookup for payload enrichment -> 1
+    estimated_complexity: 1  # Complexity 3 -> 1
+  total_score: 3
+  routing: "single_agent"
+  override_applied: null
+  rationale: "Mark Ready for Pickup transitions the RestaurantOrder from Preparing to ReadyForPickup and raises the OrderReadyForPickup event. The event payload requires loading the restaurant address from the restaurant/menu data, adding moderate logic depth. Shares the UpdatePreparationStatusFunction with RST-006. Triggers the Delivery context downstream but no cross-context reads are required."
+  recommended_subagent_tasks: []
+  recommended_swarm_workers: []

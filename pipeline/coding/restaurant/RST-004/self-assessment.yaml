@@ -1,0 +1,82 @@
+self_assessment:
+  story_id: "RST-004"
+  behaviour_name: "Accept Order"
+  bounded_context: "Restaurant"
+  assessed_at: "2026-03-03T00:00:00Z"
+
+  implementation_summary:
+    description: >
+      HTTP POST endpoint for accepting a restaurant order with estimated preparation time.
+      Uses MediatR command pattern. Validates prep time 5-90 min (RST-R03) inside the
+      aggregate. Transitions Pending to Accepted and raises OrderAccepted event via outbox.
+    files_created:
+      - "src/Restaurant/Domain/Commands/AcceptOrderCommand.cs"
+      - "src/Restaurant/Domain/Commands/AcceptOrderCommandHandler.cs"
+      - "src/Restaurant/Functions/AcceptOrderFunction.cs"
+      - "src/Restaurant/Domain/Events/OrderAccepted.cs"
+      - "tests/Restaurant.Tests/Unit/RST004Tests.cs"
+    files_reused:
+      - "src/Restaurant/Domain/Aggregates/RestaurantOrder.cs"
+      - "src/Restaurant/Infrastructure/Repositories/IRestaurantOrderRepository.cs"
+
+  acceptance_criteria:
+    - id: "RST-004-AC-01"
+      description: "Order transitions from Pending to Accepted"
+      status: "implemented"
+      evidence: "RestaurantOrder.Accept() transitions status and sets AcceptedAt"
+    - id: "RST-004-AC-02"
+      description: "OrderAccepted event published via outbox"
+      status: "implemented"
+      evidence: "Accept() calls AddDomainEvent(new OrderAccepted{...})"
+    - id: "RST-004-AC-03"
+      description: "HTTP 200 returned with updated order"
+      status: "implemented"
+      evidence: "AcceptOrderFunction returns OK with AcceptOrderResult"
+
+  error_conditions:
+    - id: "RST-004-ERR-01"
+      description: "HTTP 404 when order not found"
+      error_code: "RESTAURANT_ORDER_NOT_FOUND"
+      status: "implemented"
+      evidence: "RestaurantOrderNotFoundException caught and mapped to 404"
+    - id: "RST-004-ERR-02"
+      description: "HTTP 409 when order not in Pending status"
+      error_code: "RESTAURANT_ORDER_NOT_PENDING"
+      status: "implemented"
+      evidence: "InvalidOrderStateException caught and mapped to 409"
+    - id: "RST-004-ERR-03"
+      description: "HTTP 400 when prep time outside 5-90 range"
+      error_code: "RESTAURANT_INVALID_PREP_TIME"
+      status: "implemented"
+      evidence: "ArgumentOutOfRangeException caught and mapped to 400"
+
+  domain_events:
+    - event_name: "OrderAccepted"
+      target: "restaurant.order-accepted"
+      raised_on: "successful acceptance"
+
+  test_coverage:
+    unit_tests:
+      - "AcceptOrder_WhenPending_TransitionsToAccepted"
+      - "AcceptOrder_WhenPending_RaisesOrderAcceptedEvent"
+      - "AcceptOrder_WhenPrepTimeTooLow_ThrowsArgumentOutOfRangeException"
+      - "AcceptOrder_WhenPrepTimeTooHigh_ThrowsArgumentOutOfRangeException"
+      - "AcceptOrder_WhenNotPending_ThrowsInvalidOrderStateException"
+      - "AcceptOrder_WithPrepTime5_IsValid"
+      - "AcceptOrder_WithPrepTime90_IsValid"
+      - "AcceptOrder_WhenOrderNotFound_ThrowsRestaurantOrderNotFoundException"
+      - "AcceptOrder_WhenSuccessful_ReturnResultAndSaves"
+    test_count: 9
+    all_tests_have_assertions: true
+
+  business_rules_enforced:
+    - "RST-R03: Estimated prep time 5-90 minutes"
+
+  quality_checklist:
+    all_logic_in_aggregate: true
+    named_state_transitions: true
+    domain_events_inside_aggregate: true
+    outbox_pattern_used: true
+    immutable_value_objects: true
+    xml_doc_comments: true
+    idempotent_handlers: false

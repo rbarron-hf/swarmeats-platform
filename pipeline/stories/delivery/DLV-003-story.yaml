@@ -1,0 +1,70 @@
+story:
+  id: "DLV-003-STORY"
+  ac_node_ref: "DLV-003"
+  bounded_context: "Delivery"
+  epic: "Delivery Lifecycle Management"
+  feature: "Driver Location Tracking"
+  title: "Update driver location during active delivery"
+  user_story: >
+    As a driver, I want to send my current location during a delivery so that
+    the estimated arrival time is recalculated and the customer can track my
+    progress in real time.
+  acceptance_criteria:
+    - id: "DLV-003-AC-01"
+      given: >
+        A delivery exists in the deliveries container and the delivery is in
+        DriverAssigned or PickedUp status and the driverId in the request
+        matches the driver assigned to the delivery
+      when: >
+        A PUT request is made to /deliveries/{deliveryId}/location with
+        driverId, latitude, and longitude
+      then: >
+        The DriverLocation value object is updated with the new latitude,
+        longitude, and current timestamp
+    - id: "DLV-003-AC-02"
+      given: >
+        All validations pass
+      when: >
+        A PUT request is made to /deliveries/{deliveryId}/location
+      then: >
+        The EstimatedArrival is recalculated based on the new driver location
+        and the delivery route dropoff address
+    - id: "DLV-003-AC-03"
+      given: >
+        All validations pass
+      when: >
+        A PUT request is made to /deliveries/{deliveryId}/location
+      then: >
+        HTTP 200 is returned with the updated estimated arrival time
+  error_scenarios:
+    - id: "DLV-003-ERR-01"
+      condition: "Delivery not found"
+      expected_behaviour: "HTTP 404 returned"
+      error_code: "DELIVERY_NOT_FOUND"
+    - id: "DLV-003-ERR-02"
+      condition: "Delivery not in DriverAssigned or PickedUp status"
+      expected_behaviour: "HTTP 409 returned"
+      error_code: "DELIVERY_NOT_ACTIVE"
+    - id: "DLV-003-ERR-03"
+      condition: "Driver ID does not match the assigned driver"
+      expected_behaviour: "HTTP 403 returned"
+      error_code: "DELIVERY_WRONG_DRIVER"
+  story_dependencies:
+    - story_id: "DLV-002-STORY"
+      reason: "A driver must be assigned to the delivery before location updates can be sent"
+  story_type: "command"
+  estimated_points: 3
+  ddd_pattern: "aggregate_command"
+  ddd_notes: >
+    Updates DriverLocation value object and recalculates EstimatedArrival
+    value object on the Delivery aggregate. No domain events are raised. High
+    frequency operation (every 10 seconds per scaling requirements). DLV-R04
+    enforced for status validation.
+  azure_function: "UpdateDriverLocationFunction"
+  trigger_type: "HTTP PUT"
+  traceability:
+    fdd_sections:
+      - "5.3 Business Rules (DLV-R04)"
+      - "5.4 API Endpoints - PUT /deliveries/{deliveryId}/location"
+    ac_node_ids:
+      - "DLV-003"

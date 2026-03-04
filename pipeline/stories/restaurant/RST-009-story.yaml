@@ -1,0 +1,71 @@
+story:
+  id: "RST-009-STORY"
+  ac_node_ref: "RST-009"
+  bounded_context: "Restaurant"
+  epic: "Restaurant Order Management"
+  feature: "Dashboard Projection"
+  title: "Maintain read-optimised dashboard projection via Change Feed"
+  user_story: >
+    As the system, I need to maintain a read-optimised view of restaurant
+    orders via Cosmos DB Change Feed so that the restaurant dashboard provides
+    fast, low-latency queries for staff.
+  acceptance_criteria:
+    - id: "RST-009-AC-01"
+      given: >
+        The restaurant-orders Cosmos DB container has a change feed enabled
+        and a RestaurantOrder document has been created or updated in the
+        restaurant-orders container
+      when: >
+        The Cosmos DB Change Feed fires with one or more changed documents
+        from the restaurant-orders container
+      then: >
+        For each changed document, a read-optimised view is updated for the
+        restaurant dashboard
+    - id: "RST-009-AC-02"
+      given: >
+        A RestaurantOrder document has changed
+      when: >
+        The Change Feed fires
+      then: >
+        The projection includes the current order status, line item summaries,
+        timestamps, and restaurant identifier
+    - id: "RST-009-AC-03"
+      given: >
+        A RestaurantOrder document has changed
+      when: >
+        The Change Feed fires
+      then: >
+        The dashboard projection is optimised for fast queries by restaurant
+        staff (low-latency reads)
+    - id: "RST-009-AC-04"
+      given: >
+        A RestaurantOrder document has changed
+      when: >
+        The Change Feed fires
+      then: >
+        No domain events are raised — this is a query-side CQRS projection
+        for performance
+  error_scenarios:
+    - id: "RST-009-ERR-01"
+      condition: "Change feed processing fails (transient Cosmos DB error)"
+      expected_behaviour: "Change feed retries automatically from the last checkpoint via the lease container"
+      error_code: "CHANGE_FEED_TRANSIENT_ERROR"
+  story_dependencies:
+    - story_id: "RST-003-STORY"
+      reason: "RestaurantOrder documents must exist in the restaurant-orders container before the Change Feed can detect changes"
+  story_type: "infrastructure"
+  estimated_points: 3
+  ddd_pattern: "projection"
+  ddd_notes: >
+    CQRS read-side projection. The Change Feed trigger monitors the
+    restaurant-orders container and updates a denormalised view optimised for
+    the restaurant dashboard queries (GetActiveOrdersFunction / RST-002). The
+    lease container restaurant-orders-leases tracks the Change Feed checkpoint
+    position. No domain events produced.
+  azure_function: "ActiveOrderDashboardFunction"
+  trigger_type: "Cosmos DB Change Feed"
+  traceability:
+    fdd_sections:
+      - "4.8 Change Feed: Active Order Dashboard"
+    ac_node_ids:
+      - "RST-009"

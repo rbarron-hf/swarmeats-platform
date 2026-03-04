@@ -1,0 +1,49 @@
+ac_node:
+  id: "ORD-007"
+  bounded_context: "Orders"
+  aggregate_root: "Order"
+  behaviour_name: "Handle OrderReadyForPickup event"
+  trigger: "ServiceBus topic: restaurant.order-ready, subscription: orders-context"
+  azure_function: "HandleOrderReadyFunction"
+  given:
+    - "An order exists with the specified orderId in the Cosmos DB orders container"
+    - "The order has status Accepted or Preparing"
+  when:
+    - "An OrderReadyForPickup event is received from the Restaurant context on topic restaurant.order-ready"
+  then:
+    - "The order status transitions to ReadyForPickup"
+    - "The readyForPickupAt timestamp is recorded on the order"
+    - "The updated order is persisted to Cosmos DB orders container"
+  error_conditions:
+    - condition: "The order status transition is invalid (e.g. order is Placed, Cancelled, or Rejected)"
+      expected: "A warning is logged and the event is discarded without throwing an exception"
+      error_code: "ORDER_INVALID_TRANSITION"
+  data_contracts:
+    request_schema: |
+      {
+        "eventType": "OrderReadyForPickup",
+        "eventId": "Guid",
+        "occurredAt": "DateTimeOffset",
+        "sourceContext": "Restaurant",
+        "payload": {
+          "orderId": "Guid",
+          "restaurantId": "Guid",
+          "restaurantAddress": {
+            "street": "string",
+            "city": "string",
+            "postcode": "string",
+            "latitude": "decimal",
+            "longitude": "decimal"
+          },
+          "readyAt": "DateTimeOffset"
+        }
+      }
+    response_schema: ""
+    domain_events: []
+  dependencies:
+    - context: "Restaurant"
+      type: "async-upstream"
+      description: "Consumes OrderReadyForPickup event from Restaurant context via Service Bus topic restaurant.order-ready"
+  estimated_complexity: 2
+  story_type: "event-handler"
+  notes: "Event handler must be idempotent using eventId to detect duplicates. Accepts transitions from both Accepted and Preparing statuses since the Order context may not have received an intermediate Preparing status update. Invalid transitions are logged as warnings and discarded."
